@@ -47,7 +47,7 @@ void main() {
 
 
 
-  if(mode != 3)
+  if(mode != 3 && mode != 4)
   for(int i = 0; i < 12; i++){
 
     // Shift Triangle Vertices

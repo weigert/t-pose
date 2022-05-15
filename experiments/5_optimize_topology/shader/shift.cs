@@ -23,11 +23,28 @@ void main(){
   if(index >= NPoints)
     return;
 
-  p[index] -= 0.00005 * vec2(gr[index]) / 256 / 256;
+  vec2 tgr = gr[index];
 
-  if(p[index].x < -12.0/8.0) p[index].x = -12.0/8.0;
-  if(p[index].x > 12.0/8.0) p[index].x = 12.0/8.0;
-  if(p[index].y < -1) p[index].y = -1;
-  if(p[index].y > 1) p[index].y = 1;
+  if(p[index].x <= -12.0/8.0){
+    p[index].x = -12.0/8.0;
+    tgr.x = 0;
+  }
+
+  if(p[index].x >= 12.0/8.0){
+    p[index].x = 12.0/8.0;
+    tgr.x = 0;
+  }
+
+  if(p[index].y <= -1){
+    p[index].y = -1;
+    tgr.y = 0;
+  }
+
+  if(p[index].y >= 1){
+    p[index].y = 1;
+    tgr.y = 0;
+  }
+
+  p[index] -= 0.00005 * vec2(tgr) / 256 / 256;
 
 }

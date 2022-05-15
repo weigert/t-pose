@@ -14,7 +14,15 @@ int main( int argc, char* args[] ) {
 	Tiny::view.antialias = 0;
 
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 1200, 800);
-	Tiny::event.handler = [](){};
+
+	bool paused = true;
+
+	Tiny::event.handler = [&](){
+
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
+			paused = !paused;
+
+	};
 	Tiny::view.interface = [](){};
 
 	Texture tex(image::load("canyon.png"));		//Load Texture with Image
@@ -25,23 +33,30 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initialize( 2048 );
+	initialize( 1024 );
 	cout<<"Number of Triangles: "<<trianglebuf->SIZE<<endl;
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
 	triangleinstance.bind<ivec4>("in_Index", trianglebuf);
 
+	TLineStrip tlinestrip;
+	Instance linestripinstance(&tlinestrip);
+	linestripinstance.bind<ivec4>("in_Index", trianglebuf);
+
 	Shader triangleshader({"shader/triangle.vs", "shader/triangle.gs", "shader/triangle.fs"}, {"in_Position", "in_Index"}, {"points", "colacc", "colnum", "energy"});
 	triangleshader.bind<vec2>("points", pointbuf);
+
+	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position", "in_Index"}, {"points"});
+	linestrip.bind<vec2>("points", pointbuf);
 
 	Model pointmesh({"in_Position"});
 	pointmesh.bind<vec2>("in_Position", pointbuf);
 	pointmesh.SIZE = pointbuf->SIZE;
 
-	int NPoints = pointbuf->SIZE;
-	int KTriangles = trianglebuf->SIZE;
-	int NTriangles = (1+12)*KTriangles;
+	NPoints = pointbuf->SIZE;
+	KTriangles = trianglebuf->SIZE;
+	NTriangles = (1+12)*KTriangles;
 
 	// Color Accumulation Buffers
 
@@ -91,6 +106,8 @@ int main( int argc, char* args[] ) {
 		image.texture("imageTexture", tex);		//Load Texture
 		image.uniform("model", flat.model);		//Add Model Matrix
 		flat.render();													//Render Primitive
+
+		if(!paused){
 
 		// Reset Accumulation Buffers
 
@@ -153,6 +170,8 @@ int main( int argc, char* args[] ) {
 
 		// Render Points
 
+		}
+
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 3);
@@ -162,17 +181,10 @@ int main( int argc, char* args[] ) {
 		point.use();
 		pointmesh.render(GL_POINTS);
 
+		linestrip.use();
+		linestripinstance.render(GL_LINE_STRIP);
 
-		// TOPOLOGICAL OPTIMIZATIONS
 
-		/*
-
-				Topological Optimization:
-					- Collapse Vertices (Thin Triangles)
-					- Delaunay Flip (Flat Triangles)
-					- Centroid Split (Bad Triangles)
-
-		*/
 
 		// Retrieve Data
 
@@ -180,187 +192,37 @@ int main( int argc, char* args[] ) {
 		tcolnumbuf.retrieve(tcolnumbuf.SIZE, cn);
 		pointbuf->retrieve(points);			                            //Retrieve Data from Compute Shader
 
-		// Delaunay Flip
+		// TOPOLOGICAL OPTIMIZATIONS
 
-		for(size_t j = 0; j < 50; j++){
-
-		int ta = rand()%KTriangles;					// Pick a Random Triangle
-		int ha = 3*ta + rand()%3;						// Random Half-Edge Index
-		int hb = halfedges[3*ta + ha%3];							// Neighboring Half-Edge
-		int tb = hb/3;											// Neighboring Triangle
-
-	//	cout<<"Triangle "<<ta<<" "<<tb<<endl;
-	//	cout<<"Halfedge "<<ha<<" "<<hb<<endl;
-
-		if(hb >= 0){
-
-			// Compute Sum of Angles
-
-			vec2 paa = points[triangles[ta][(ha+0)%3]];
-			vec2 pab = points[triangles[ta][(ha+1)%3]];
-			vec2 pac = points[triangles[ta][(ha+2)%3]];
-			float wa = acos(dot(paa - pac, pab - pac) / length(paa - pac) / length(pab - pac));
-
-			vec2 pba = points[triangles[tb][(hb+0)%3]];
-			vec2 pbb = points[triangles[tb][(hb+1)%3]];
-			vec2 pbc = points[triangles[tb][(hb+2)%3]];
-			float wb = acos(dot(pba - pbc, pbb - pbc) / length(pba - pbc) / length(pbb - pbc));
-
-		//	cout<<"Angles "<<wa<<" "<<wb<<endl;
-
-			if(wa + wb >= 3.14159265f){
-
-
-				int ta0 = halfedges[3*ta+(ha+0)%3];	//h3
-				int ta1 = halfedges[3*ta+(ha+1)%3];	//h6
-				int ta2 = halfedges[3*ta+(ha+2)%3];	//h7
-
-				int tb0 = halfedges[3*tb+(hb+0)%3];	//h0
-				int tb1 = halfedges[3*tb+(hb+1)%3];	//h8
-				int tb2 = halfedges[3*tb+(hb+2)%3];	//h9
-
-				//if(ta0 != -1 && ta1 != -1 && ta2 != -1)
-				//if(tb0 != -1 && tb1 != -1 && tb2 != -1){
-
-					cout<<"PREFLIP, "<<ha<<" "<<hb<<endl;
-
-					ivec4 tca = triangles[ta];
-					ivec4 tcb = triangles[tb];
-
-					cout<<tca.x<<" "<<tca.y<<" "<<tca.z<<endl;
-					cout<<tcb.x<<" "<<tcb.y<<" "<<tcb.z<<endl;
-
-					cout<<ta0<<" "<<ta1<<" "<<ta2<<endl;
-					cout<<tb0<<" "<<tb1<<" "<<tb2<<endl;
-
-					// Internal Shift
-
-					halfedges[3*ta+(ha+0)%3] = ta0;
-					halfedges[3*ta+(ha+1)%3] = ta2;
-					halfedges[3*ta+(ha+2)%3] = tb1;
-
-					halfedges[3*tb+(hb+0)%3] = tb0;
-					halfedges[3*tb+(hb+1)%3] = tb2;
-					halfedges[3*tb+(hb+2)%3] = ta1;
-
-					// External Shift
-
-					halfedges[ta1] = 3*tb+(hb+2)%3;
-					halfedges[ta2] = 3*ta+(ha+1)%3;
-
-					halfedges[tb1] = 3*ta+(ha+2)%3;
-					halfedges[tb2] = 3*tb+(hb+1)%3;
-
-
-
-					triangles[ta][(ha+0)%3] = tcb[(hb+2)%3];
-					triangles[ta][(ha+1)%3] = tca[(ha+2)%3];
-					triangles[ta][(ha+2)%3] = tcb[(hb+1)%3];
-
-					triangles[tb][(hb+0)%3] = tca[(ha+2)%3];
-					triangles[tb][(hb+1)%3] = tcb[(hb+2)%3];
-					triangles[tb][(hb+2)%3] = tca[(ha+1)%3];
-
-					cout<<"POSTFLIP"<<endl;
-					tca = triangles[ta];
-					tcb = triangles[tb];
-
-					cout<<tca.x<<" "<<tca.y<<" "<<tca.z<<endl;
-					cout<<tcb.x<<" "<<tcb.y<<" "<<tcb.z<<endl;
-
-					trianglebuf->fill(triangles);
-
-
-				}
-
-
-
-
-
-
-
-
-	//		}
-
-		}
-
-	}
-
-
-
-		//
-
-		/*
-
-		cout<<n++<<endl;
-		if(n%50 != 0)
-			return;
-
-		// Find the guy with the biggest error!
-
-	//	int t = rand()%KTriangles;
-
-		int maxerr = 0;
-		for(size_t i = 0; i < KTriangles; i++){
-			if(cn[i] == 0) continue;
-			if(sqrt(err[i]) >= maxerr)
-				maxerr = sqrt(err[i]);
-		}
-
-
-		cout<<"MAXERR "<<maxerr<<endl;
-		if(maxerr <= 10)
-			return;
-
-		for(size_t t = 0; t < KTriangles; t++){
-
-			if(cn[t] == 0) continue;
-			if(sqrt(err[t]) < 0.9*maxerr)
-				continue;
-
-			if(cn[t] < 15)
-				continue;
-
-			cout<<"ERR "<<t<<" "<<sqrt(err[t])<<" "<<cn[t]<<endl;
-
-			// Split the Triangle
-
-			ivec4 tind = triangles[t];
-
-			vec2 npos = (points[tind.x] + points[tind.y] + points[tind.z])/3.0f;
-			int nind = points.size();
-			points.push_back(npos);
-
-			// Replace 3 Triangles
-
-			triangles.push_back(ivec4(nind, tind.y, tind.z, 0));
-			triangles.push_back(ivec4(tind.x, nind, tind.z, 0));
-			triangles[t].z = nind;
-
-			// Update Numbers
-
-			KTriangles += 2;
-			NTriangles = (1+12)*KTriangles;
-			NPoints++;
-
-		}
-
+		optimize();
 
 		// Update Buffers
 
 		trianglebuf->fill(triangles);
 		pointbuf->fill(points);
-
 		pointmesh.SIZE = pointbuf->SIZE;
+		triangleinstance.bind<ivec4>("in_Index", trianglebuf);
 		triangleinstance.SIZE = trianglebuf->SIZE;
 
-		*/
+		linestripinstance.bind<ivec4>("in_Index", trianglebuf);
+		linestripinstance.SIZE = trianglebuf->SIZE;
+
+
+
 
 	};
 
+	Tiny::loop([&](){
 
+		if(paused) return;
 
-	Tiny::loop([&](){});
+	});
+
+	delete[] err;
+	delete[] cn;
+
+	delete trianglebuf;
+	delete pointbuf;
 
 	Tiny::quit();
 
