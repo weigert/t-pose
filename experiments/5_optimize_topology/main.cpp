@@ -59,10 +59,10 @@ int main( int argc, char* args[] ) {
 
 	// Color Accumulation Buffers
 
-	Buffer tcolaccbuf( 16*MAXTriangles, (ivec4*)NULL );		// Raw Color
-	Buffer tcolnumbuf( 16*MAXTriangles, (int*)NULL );			// Triangle Size (Pixels)
-	Buffer tenergybuf( 16*MAXTriangles, (int*)NULL );			// Triangle Energy
-	Buffer pgradbuf( 16*MAXTriangles, (ivec2*)NULL );
+	Buffer tcolaccbuf( MAXTriangles, (ivec4*)NULL );		// Raw Color
+	Buffer tcolnumbuf( MAXTriangles, (int*)NULL );			// Triangle Size (Pixels)
+	Buffer tenergybuf( MAXTriangles, (int*)NULL );			// Triangle Energy
+	Buffer pgradbuf( MAXTriangles, (ivec2*)NULL );
 
 	triangleshader.bind<ivec4>("colacc", &tcolaccbuf);
 	triangleshader.bind<int>("colnum", &tcolnumbuf);
@@ -92,7 +92,7 @@ int main( int argc, char* args[] ) {
 
 	// Convenience Lambdas
 
-	auto computecolors = [&](){
+	auto computecolors = [&]( bool other = true ){
 
 		reset.use();
 		reset.uniform("NTriangles", NTriangles);
@@ -107,6 +107,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 0);
 		triangleshader.uniform("KTriangles", KTriangles);
+		triangleshader.uniform("drawother", other);
 		triangleshader.uniform("RATIO", RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP);
 
@@ -117,14 +118,21 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	auto doshift = [&](){
+	auto doenergy = [&]( bool other = true ){
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);
 		triangleshader.uniform("mode", 1);
 		triangleshader.uniform("KTriangles", KTriangles);
+		triangleshader.uniform("drawother", other);
 		triangleshader.uniform("RATIO", RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP);
+
+	};
+
+	auto doshift = [&](){
+
+		doenergy(true);
 
 		gradient.use();
 		gradient.uniform("K", KTriangles);
@@ -145,6 +153,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 2);
+		triangleshader.uniform("drawother", false);
 		triangleshader.uniform("K", KTriangles);
 		triangleshader.uniform("RATIO", RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP);
@@ -156,6 +165,18 @@ int main( int argc, char* args[] ) {
 		linestrip.use();
 		linestrip.uniform("RATIO", RATIO);
 		linestripinstance.render(GL_LINE_STRIP);
+
+	};
+
+	auto upload = [&](){
+
+		trianglebuf->fill(triangles);
+		pointbuf->fill(points);
+		triangleinstance.bind<ivec4>("in_Index", trianglebuf);
+		linestripinstance.bind<ivec4>("in_Index", trianglebuf);
+		triangleinstance.SIZE = KTriangles;
+		linestripinstance.SIZE = KTriangles;
+		pointmesh.SIZE = NPoints;
 
 	};
 
@@ -186,48 +207,33 @@ int main( int argc, char* args[] ) {
 
 		// TOPOLOGICAL OPTIMIZATIONS
 
+		bool updated = false;
+
 		if( geterr() < 1E-3 ){
 
 			int tta = maxerrid();
 			if(tta >= 0)
 			if(split(tta)){
 
-				// Update Buffers
+				updated = true;
 
-				trianglebuf->fill(triangles);
-				pointbuf->fill(points);
-				triangleinstance.bind<ivec4>("in_Index", trianglebuf);
-				linestripinstance.bind<ivec4>("in_Index", trianglebuf);
-				triangleinstance.SIZE = KTriangles;
-				linestripinstance.SIZE = KTriangles;
-				pointmesh.SIZE = NPoints;
+				// Necessary if we split more than one guy
 
-				computecolors();
-
-				triangleshader.use();
-				triangleshader.texture("imageTexture", tex);		//Load Texture
-				triangleshader.uniform("mode", 3);
-				triangleshader.uniform("KTriangles", KTriangles);
-				triangleshader.uniform("RATIO", RATIO);
-				triangleinstance.render(GL_TRIANGLE_STRIP);
+				/*
+				upload();
+				computecolors( false );
+				doenergy( false );
+				*/
 
 			}
 
 		}
 
-		if(optimize()){
+		if(optimize())
+			updated = true;
 
-			// Update Buffers
-
-			trianglebuf->fill(triangles);
-			pointbuf->fill(points);
-			triangleinstance.bind<ivec4>("in_Index", trianglebuf);
-			linestripinstance.bind<ivec4>("in_Index", trianglebuf);
-			triangleinstance.SIZE = KTriangles;
-			linestripinstance.SIZE = KTriangles;
-			pointmesh.SIZE = NPoints;
-
-		}
+		if(updated)
+			upload();
 
 	});
 

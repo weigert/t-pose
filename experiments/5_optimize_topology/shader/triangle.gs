@@ -16,7 +16,7 @@ out GS_OUT {
   flat int index;
 } gs_out;
 
-uniform int mode;
+uniform bool drawother;
 
 void main() {
 
@@ -45,9 +45,9 @@ void main() {
   gs_out.index = index;
   EmitVertex();
 
+  // Shifted Triangles
 
-
-  if(mode < 2)
+  if(drawother)
   for(int i = 0; i < 12; i++){
 
     // Shift Triangle Vertices
@@ -96,7 +96,3 @@ void main() {
   EndPrimitive();
 
 }
-
-/*
-
-*/
