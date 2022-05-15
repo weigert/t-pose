@@ -36,7 +36,7 @@ void main(){
 
   }
 
-  if( mode == 1 ){
+  if( mode == 1 || mode == 3 ){
 
     // Accumulate Cost Function
 
@@ -45,22 +45,13 @@ void main(){
 
   }
 
-  if( mode == 2 || mode == 3 ){
+  if( mode == 2 ){
 
     // Display
 
   //  fragColor = mix(vec4(0,0,1,1), vec4(1,0,0,1), sqrt(float(en[gs_out.index]/cn[gs_out.index]))/255.0f);
-    fragColor = vec4(vec3(ca[gs_out.index].rgb)/255, 1);
+   fragColor = vec4(vec3(ca[gs_out.index].rgb)/255, 1);
   //  fragColor = vec4(0,0,0,1);
-
-  }
-
-  if( mode == 4 ){
-
-    // Display
-
-  //  fragColor = mix(vec4(0,0,1,1), vec4(1,0,0,1), sqrt(float(en[gs_out.index]/cn[gs_out.index]))/255.0f);
-    fragColor = vec4(1);
 
   }
 

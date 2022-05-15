@@ -15,7 +15,6 @@ layout (std430, binding = 5) buffer indices {
 };
 
 uniform int K;
-uniform int mode;
 
 void main(){
 

@@ -3,6 +3,8 @@
 using namespace glm;
 using namespace std;
 
+#define PI 3.14159265f
+
 struct Triangle : Model {
 	Buffer vert;
 	Triangle():Model({"vert"}),
@@ -24,6 +26,8 @@ struct TLineStrip : Model {
 
 Buffer* trianglebuf;
 Buffer* pointbuf;
+int* err;
+int* cn;
 
 vector<vec2> points;			//Coordinates for Delaunation
 vector<ivec4> triangles;	//Triangle Point Indexing
@@ -32,15 +36,53 @@ vector<int> halfedges;	//Triangle Halfedge Indexing
 int NPoints;
 int KTriangles;
 int NTriangles;
+const int MAXTriangles = 64000;
 
 void initialize( const int K = 1024 ){
 
+	pointbuf = new Buffer(16*MAXTriangles, (vec2*)NULL);
+	trianglebuf = new Buffer(16*MAXTriangles, (ivec4*)NULL);
+
+	err = new int[16*MAXTriangles];
+	cn = new int[16*MAXTriangles];
+
   // Create a Delaunator!
 
-	points.emplace_back(-1.2/0.8f,-1);
-	points.emplace_back(-1.2/0.8f, 1);
-	points.emplace_back( 1.2/0.8f,-1);
-	points.emplace_back( 1.2/0.8f, 1);
+	/*
+	points.emplace_back(-6.0/9.0f,-1);
+	points.emplace_back(-6.0/9.0f, 1);
+	points.emplace_back( 6.0/9.0f,-1);
+	points.emplace_back( 6.0/9.0f, 1);
+	*/
+
+	points.emplace_back(-6.0/9.0f,-1);
+	points.emplace_back(-6.0/9.0f, 1);
+	points.emplace_back( 6.0/9.0f,-1);
+	points.emplace_back( 6.0/9.0f, 1);
+
+	//points.emplace_back( 0, 0);
+
+	/*
+
+
+	points.emplace_back( 0, 0);
+	points.emplace_back( -0.6/0.8f, 0);
+	points.emplace_back( 0.6/0.8f, 0);
+	points.emplace_back( 0, -0.5);
+	points.emplace_back( 0, 0.5);
+
+	points.emplace_back( -0.6/0.8f, 0.5);
+	points.emplace_back( 0.6/0.8f, 0.5);
+	points.emplace_back( -0.6/0.8f, -0.5);
+	points.emplace_back( 0.6/0.8f, -0.5);
+
+	points.emplace_back( 0, -1);
+	points.emplace_back( 0, 1);
+	points.emplace_back( -6.0/9.0f, 0);
+	points.emplace_back( 6.0/9.0f, 0);
+
+	*/
+
 
 	while(points.size() < K/2)
 		sample::disc(points, K, vec2(-12.0f/8.0f, -1.0f), vec2(12.0f/8.0f, 1.0f));
@@ -53,7 +95,7 @@ void initialize( const int K = 1024 ){
 
 	delaunator::Delaunator d(coords);			//Compute Delaunay Triangulation
 
-	pointbuf = new Buffer(points);
+	pointbuf->fill(points);
 
   for(size_t i = 0; i < d.triangles.size()/3; i++){
 		triangles.emplace_back(d.triangles[3*i+0], d.triangles[3*i+1], d.triangles[3*i+2], 0);
@@ -62,7 +104,11 @@ void initialize( const int K = 1024 ){
 		halfedges.push_back(d.halfedges[3*i+2]);
 	}
 
-	trianglebuf = new Buffer(triangles);
+	trianglebuf->fill(triangles);
+
+	NPoints = points.size();
+	KTriangles = triangles.size();
+	NTriangles = (1+12)*KTriangles;
 
 }
 
@@ -101,19 +147,19 @@ int boundary( int t ){
 
 	int nboundary = 0;
 
-	if(points[triangles[t].x].x <= -1.2/0.8f
+	if(points[triangles[t].x].x <= -6.0/9.0f
 	|| points[triangles[t].x].y <= -1
-	|| points[triangles[t].x].x >=  1.2/0.8f
+	|| points[triangles[t].x].x >=  6.0/9.0f
 	|| points[triangles[t].x].y >=  1) nboundary++;
 
-	if(points[triangles[t].y].x <= -1.2/0.8f
+	if(points[triangles[t].y].x <= -6.0/9.0f
 	|| points[triangles[t].y].y <= -1
-	|| points[triangles[t].y].x >=  1.2/0.8f
+	|| points[triangles[t].y].x >=  6.0/9.0f
 	|| points[triangles[t].y].y >=  1) nboundary++;
 
-	if(points[triangles[t].z].x <= -1.2/0.8f
+	if(points[triangles[t].z].x <= -6.0/9.0f
 	|| points[triangles[t].z].y <= -1
-	|| points[triangles[t].z].x >=  1.2/0.8f
+	|| points[triangles[t].z].x >=  6.0/9.0f
 	|| points[triangles[t].z].y >=  1) nboundary++;
 
 	return nboundary;
@@ -145,6 +191,10 @@ bool prune( int ta ){
 
 	if(ta0 >= 0 && ta1 >= 0 && ta2 >= 0)
 		return false;
+
+	if(angle(3*ta+0) > 0 && angle(3*ta+0) < PI) return false;
+	if(angle(3*ta+1) > 0 && angle(3*ta+1) < PI) return false;
+	if(angle(3*ta+2) > 0 && angle(3*ta+2) < PI) return false;
 
 	// Remove References
 
@@ -178,22 +228,22 @@ bool prune( int ta ){
 
 // Delaunay Flipping
 
-void flip( int ha ){
+bool flip( int ha ){
 
 	int hb = halfedges[ha];		// Opposing Half-Edge
 	int ta = ha/3;						// First Triangle
 	int tb = hb/3;						// Second Triangle
 
-	if(hb < 0)	return;				// No Opposing Half-Edge
+	if(hb < 0)	return false;	// No Opposing Half-Edge
 
 	float aa = angle(ha);
 	float ab = angle(hb);
 
-	if(aa + ab < 3.14159265f + 1E-8)
-		return;
+	if(aa + ab < PI)
+		return false;
 
-	if(aa < 1E-8 || ab <= 1E-8)
-		return;
+	if(aa <= 1E-8 || ab <= 1E-8)
+		return false;
 
 	// Retrieve Half-Edge Indices
 
@@ -238,17 +288,20 @@ void flip( int ha ){
 	triangles[tb][(hb+1)%3] = tcb[(hb+2)%3];
 	triangles[tb][(hb+2)%3] = tca[(ha+1)%3];
 
+	cout<<"FLIPPED"<<endl;
+	return true;
+
 }
 
 // Half-Edge Collapse
 
-void collapse( int ha ){
+bool collapse( int ha ){
 
 	int hb = halfedges[ha];		// Opposing Half-Edge
 	int ta = ha/3;						// First Triangle
 	int tb = hb/3;						// Second Triangle
 
-	if(hb < 0)	return;				// No Opposing Half-Edge
+	if(hb < 0)	return false; // No Opposing Half-Edge
 
 	// Retrieve Exterior Half-Edge Indices
 
@@ -263,13 +316,13 @@ void collapse( int ha ){
 	int ia = triangles[ta][(ha+0)%3];
 	int ib = triangles[tb][(hb+0)%3];
 
-	if(ia < 4 || ib < 4)	//we don't collapse edges, my friend
-		return;
+	// No collapsing on Boundary
 
-	if(length(points[ia] - points[ib]) > 0.1)
-		return;
+	if(boundary(ta) > 0 || boundary(tb) > 0)
+		return false;
 
-	cout<<"COLLAPSE 1"<<endl;
+	if(length(points[ia] - points[ib]) > 0.01)
+		return false;
 
 	vec2 vn = 0.5f*(points[ia] + points[ib]);
 	int in = points.size();
@@ -334,12 +387,12 @@ void collapse( int ha ){
 	for(auto& t: triangles){
 
 		ivec4 tt = t;
-		if(tt.x > ia) t.x--;
-		if(tt.y > ia) t.y--;
-		if(tt.z > ia) t.z--;
-		if(tt.x > ib) t.x--;
-		if(tt.y > ib) t.y--;
-		if(tt.z > ib) t.z--;
+		if(tt.x >= ia) t.x--;
+		if(tt.y >= ia) t.y--;
+		if(tt.z >= ia) t.z--;
+		if(tt.x >= ib) t.x--;
+		if(tt.y >= ib) t.y--;
+		if(tt.z >= ib) t.z--;
 
 	}
 
@@ -355,13 +408,16 @@ void collapse( int ha ){
 	NTriangles = (1+12)*KTriangles;
 	NPoints--;
 
+	cout<<"COLLAPSED"<<endl;
+	return true;
+
 }
 
 // Triangle Splitting
 
-void split( int ta ){
+bool split( int ta ){
 
-	ivec4 tca = triangles[ta];	//Triangle Verticees
+	ivec4 tca = triangles[ta];	//Triangle Vertices
 
 	// Compute Centroid, Add Centroid to Triangulation
 
@@ -386,19 +442,19 @@ void split( int ta ){
 
 	// Interior Half-Edge Reference Shift
 
-	halfedges.resize(triangles.size()*3);
+	//halfedges.resize(triangles.size()*3);
 
 	halfedges[3*ta + 0] = tax;
 	halfedges[3*ta + 1] = 3*tb + 2;
 	halfedges[3*ta + 2] = 3*tc + 1;
 
-	halfedges[3*tb + 0] = tay;
-	halfedges[3*tb + 1] = 3*tc + 2;
-	halfedges[3*tb + 2] = 3*ta + 1;
+	halfedges.push_back(tay);
+	halfedges.push_back(3*tc + 2);
+	halfedges.push_back(3*ta + 1);
 
-	halfedges[3*tc + 0] = taz;
-	halfedges[3*tc + 1] = 3*ta + 2;
-	halfedges[3*tc + 2] = 3*tb + 1;
+	halfedges.push_back(taz);
+	halfedges.push_back(3*ta + 2);
+	halfedges.push_back(3*tb + 1);
 
 	// Exterior Half-Edge Refrence Shift
 
@@ -412,8 +468,10 @@ void split( int ta ){
 	NTriangles = (1+12)*KTriangles;
 	NPoints++;
 
-}
+	cout<<"SPLIT"<<endl;
+	return true;
 
+}
 
 /*
 ================================================================================
@@ -429,17 +487,47 @@ void split( int ta ){
 
 */
 
-void optimize(){
+float toterr = 1.0f;
+float newerr;
+float relerr;
+float maxerr;
+
+bool optimize(){
+
+	cout<<"OPTIMIZE"<<endl;
+
+	/*
+
+	maxerr = 0.0f;
+	newerr = 0.0f;
+
+	for(size_t i = 0; i < KTriangles; i++){
+		if(cn[i] == 0) continue;
+		newerr += err[i];
+		if(sqrt(err[i]) >= maxerr)
+			maxerr = sqrt(err[i]);
+	}
+
+	relerr = (toterr - newerr)/toterr;
+	toterr = newerr;
+
+	cout<<"RELERR "<<abs(relerr)<<endl;
+	if( abs(relerr) > 1E-6 )
+		return false;
+
+	*/
+
+	bool altered = false;
 
 	// Prune Flat Boundary Triangles
 
-	for(size_t ta = 0; ta < triangles.size(); ta++)
+	for(size_t ta = 0; ta < KTriangles; ta++)
 	if(boundary(ta) == 3)
 		prune(ta);
 
-	// Attempt a Delaunay Flip on a triangle's Largest Angle
+// Attempt a Delaunay Flip on a triangle's Largest Angle
 
-	for(size_t ta = 0; ta < triangles.size(); ta++){
+	for(size_t ta = 0; ta < KTriangles; ta++){
 
 		int ha = 3*ta + 0;
 		float maxangle = angle( ha );
@@ -459,69 +547,51 @@ void optimize(){
 
 		int ha = 3*ta + 0;
 		float minlength = hlength( ha );
-		if(hlength( ha + 1 ) <= minlength){
-			ha++; minlength = hlength( ha + 1 );
+		if(hlength( ha + 1 ) < minlength)
+			minlength = hlength( ++ha );
+		if(hlength( ha + 1 ) < minlength)
+			minlength = hlength( ++ha );
+		if(collapse(ha)){
+			altered = true;
+			break;
 		}
-		if(hlength( ha + 1 ) <= minlength){
-			ha++; minlength = hlength( ha + 1 );
-		}
-		collapse(ha);
 
 	}
 
 	*/
 
-	/*
 
 
-
-	*/
-
-
-
-		/*
-		int ta = rand()%KTriangles;					// Pick a Random Triangle
-		int ha = 3*ta + 0;
-		float maxangle = angle( ha );
-		if(angle( ha + 1 ) >= maxangle){
-			ha++; maxangle = angle( ha + 1 );
-		}
-		if(angle( ha + 1 ) >= maxangle){
-			ha++; maxangle = angle( ha + 1 );
-		}
-		flip(ha);
-		*/
-
-
-
-}
 
 
 
 	/*
-	int maxerr = 0;
+
+	if(altered){
+		toterr = 1;
+		return true;
+	}
+
+
+
+	maxerr = 0;
+	int tta = 0;
 	for(size_t i = 0; i < KTriangles; i++){
 		if(cn[i] == 0) continue;
-		if(sqrt(err[i]) >= maxerr)
-			maxerr = sqrt(err[i]);
+		if(err[i] >= maxerr){
+			maxerr = err[i];
+			tta = i;
+		}
 	}
 
+	int b = KTriangles;
+	for(size_t i = 0; i < b; i++){
+		if(err[i] > 0.9*maxerr)
+			split(tta);
+	}
 
-	cout<<"MAXERR "<<maxerr<<endl;
-	if(maxerr <= 10)
-		return;
+	*/
 
+	return true;
 
-
-	for(size_t t = 0; t < KTriangles; t++){
-
-		if(cn[t] == 0) continue;
-		if(sqrt(err[t]) < 0.9*maxerr)
-			continue;
-
-		if(cn[t] < 15)
-			continue;
-
-		cout<<"ERR "<<t<<" "<<sqrt(err[t])<<" "<<cn[t]<<endl;
-
-		*/
+}

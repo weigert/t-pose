@@ -15,7 +15,6 @@ layout (std430, binding = 3) buffer energy {
 };
 
 uniform int NTriangles;
-uniform int mode;
 
 void main(){
 
@@ -24,19 +23,7 @@ void main(){
   if(index >= NTriangles)
     return;
 
-  if(mode == 0){
-
-    if(cn[index] > 0)
-      ca[index] = ca[index]/cn[index];
-
-  }
-
-  if(mode == 1){
-
-  //  if(cn[index] > 0)
-  //    en[index] = en[index]/cn[index];
-  //  else en[index] = 0;
-
-  }
+  if(cn[index] > 0)
+    ca[index] = ca[index]/cn[index];
 
 };

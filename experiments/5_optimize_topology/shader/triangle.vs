@@ -20,7 +20,7 @@ void main() {
   if (in_Position.x > 0) tpos = p[in_Index.x];
   if (in_Position.y > 0) tpos = p[in_Index.y];
   if (in_Position.z > 0) tpos = p[in_Index.z];
-  tpos.x /= 1200.0f/800.0f;
+  tpos.x /= 6.0/9.0;
 
   vs_out.position = tpos;
   vs_out.index = gl_InstanceID;
