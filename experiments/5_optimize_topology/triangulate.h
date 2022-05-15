@@ -48,44 +48,18 @@ void initialize( const int K = 1024 ){
 
   // Create a Delaunator!
 
-	/*
-	points.emplace_back(-6.0/9.0f,-1);
-	points.emplace_back(-6.0/9.0f, 1);
-	points.emplace_back( 6.0/9.0f,-1);
-	points.emplace_back( 6.0/9.0f, 1);
-	*/
+	points.emplace_back(-RATIO,-1);
+	points.emplace_back(-RATIO, 1);
+	points.emplace_back( RATIO,-1);
+	points.emplace_back( RATIO, 1);
 
-	points.emplace_back(-6.0/9.0f,-1);
-	points.emplace_back(-6.0/9.0f, 1);
-	points.emplace_back( 6.0/9.0f,-1);
-	points.emplace_back( 6.0/9.0f, 1);
+//	for(float x = -RATIO; x <= RATIO; x += RATIO/6 )
+//	for(float y = -1; y <= 1; y += 1.0f/4 ){
+//		points.emplace_back(x, y);
+//	}
 
-	//points.emplace_back( 0, 0);
-
-	/*
-
-
-	points.emplace_back( 0, 0);
-	points.emplace_back( -0.6/0.8f, 0);
-	points.emplace_back( 0.6/0.8f, 0);
-	points.emplace_back( 0, -0.5);
-	points.emplace_back( 0, 0.5);
-
-	points.emplace_back( -0.6/0.8f, 0.5);
-	points.emplace_back( 0.6/0.8f, 0.5);
-	points.emplace_back( -0.6/0.8f, -0.5);
-	points.emplace_back( 0.6/0.8f, -0.5);
-
-	points.emplace_back( 0, -1);
-	points.emplace_back( 0, 1);
-	points.emplace_back( -6.0/9.0f, 0);
-	points.emplace_back( 6.0/9.0f, 0);
-
-	*/
-
-
-	while(points.size() < K/2)
-		sample::disc(points, K, vec2(-12.0f/8.0f, -1.0f), vec2(12.0f/8.0f, 1.0f));
+	//while(points.size() < K/2)
+	//	sample::disc(points, K, vec2(-12.0f/8.0f, -1.0f), vec2(12.0f/8.0f, 1.0f));
 
 	vector<double> coords;					//Coordinates for Delaunation
   for(size_t i = 0; i < points.size(); i++){
@@ -147,19 +121,19 @@ int boundary( int t ){
 
 	int nboundary = 0;
 
-	if(points[triangles[t].x].x <= -6.0/9.0f
+	if(points[triangles[t].x].x <= -RATIO
 	|| points[triangles[t].x].y <= -1
-	|| points[triangles[t].x].x >=  6.0/9.0f
+	|| points[triangles[t].x].x >=  RATIO
 	|| points[triangles[t].x].y >=  1) nboundary++;
 
-	if(points[triangles[t].y].x <= -6.0/9.0f
+	if(points[triangles[t].y].x <= -RATIO
 	|| points[triangles[t].y].y <= -1
-	|| points[triangles[t].y].x >=  6.0/9.0f
+	|| points[triangles[t].y].x >=  RATIO
 	|| points[triangles[t].y].y >=  1) nboundary++;
 
-	if(points[triangles[t].z].x <= -6.0/9.0f
+	if(points[triangles[t].z].x <= -RATIO
 	|| points[triangles[t].z].y <= -1
-	|| points[triangles[t].z].x >=  6.0/9.0f
+	|| points[triangles[t].z].x >=  RATIO
 	|| points[triangles[t].z].y >=  1) nboundary++;
 
 	return nboundary;
@@ -239,7 +213,7 @@ bool flip( int ha ){
 	float aa = angle(ha);
 	float ab = angle(hb);
 
-	if(aa + ab < PI)
+	if(aa + ab <= PI)
 		return false;
 
 	if(aa <= 1E-8 || ab <= 1E-8)

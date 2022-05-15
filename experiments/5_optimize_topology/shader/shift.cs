@@ -11,6 +11,7 @@ layout (std430, binding = 4) buffer gradient {
 };
 
 uniform int NPoints;
+uniform float RATIO;
 
 void main(){
 
@@ -24,13 +25,13 @@ void main(){
 
   vec2 tgr = gr[index];
 
-  if(p[index].x <= -6.0/9.0){
-    p[index].x = -6.0/9.0;
+  if(p[index].x <= -RATIO){
+    p[index].x = -RATIO;
     tgr.x = 0;
   }
 
-  if(p[index].x >= 6.0/9.0){
-    p[index].x = 6.0/9.0;
+  if(p[index].x >= RATIO){
+    p[index].x = RATIO;
     tgr.x = 0;
   }
 
