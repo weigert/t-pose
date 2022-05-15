@@ -28,7 +28,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("index.png"));		//Load Texture with Image
+	Texture tex(image::load("canyon.png"));		//Load Texture with Image
 	Square2D flat;														//Create Primitive Model
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
@@ -90,161 +90,119 @@ int main( int argc, char* args[] ) {
 	shift.bind<ivec4>("points", pointbuf);
 	shift.bind<ivec2>("gradient", &pgradbuf);
 
-	int n = 0;
+	// Convenience Lambdas
+
+	auto computecolors = [&](){
+
+		reset.use();
+		reset.uniform("NTriangles", NTriangles);
+		reset.uniform("NPoints", NPoints);
+
+		if(NTriangles > NPoints) reset.dispatch(1 + NTriangles/1024);
+		else reset.dispatch(1 + NPoints/1024);
+
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+		triangleshader.use();
+		triangleshader.texture("imageTexture", tex);		//Load Texture
+		triangleshader.uniform("mode", 0);
+		triangleshader.uniform("KTriangles", KTriangles);
+		triangleshader.uniform("RATIO", RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP);
+
+		average.use();
+		average.uniform("NTriangles", NTriangles);
+		average.dispatch(1 + NTriangles/1024);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+	};
+
+	auto doshift = [&](){
+
+		triangleshader.use();
+		triangleshader.texture("imageTexture", tex);
+		triangleshader.uniform("mode", 1);
+		triangleshader.uniform("KTriangles", KTriangles);
+		triangleshader.uniform("RATIO", RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP);
+
+		gradient.use();
+		gradient.uniform("K", KTriangles);
+		gradient.uniform("RATIO", RATIO);
+		gradient.dispatch(1 + KTriangles/1024);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+		shift.use();
+		shift.uniform("NPoints", NPoints);
+		shift.uniform("RATIO", RATIO);
+		shift.dispatch(1 + NPoints/1024);
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+	};
+
+	auto draw = [&](){
+
+		triangleshader.use();
+		triangleshader.texture("imageTexture", tex);		//Load Texture
+		triangleshader.uniform("mode", 2);
+		triangleshader.uniform("K", KTriangles);
+		triangleshader.uniform("RATIO", RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP);
+
+		point.use();
+		point.uniform("RATIO", RATIO);
+		pointmesh.render(GL_POINTS);
+
+		linestrip.use();
+		linestrip.uniform("RATIO", RATIO);
+		linestripinstance.render(GL_LINE_STRIP);
+
+	};
+
+	computecolors();
 
 	Tiny::view.pipeline = [&](){
 
 		Tiny::view.target(color::black);				//Target Main Screen
 
-		// Render Background Image
+		computecolors();
+		draw();
 
-		image.use();														//Use Effect Shader
-		image.texture("imageTexture", tex);		//Load Texture
-		image.uniform("model", flat.model);		//Add Model Matrix
-		flat.render();													//Render Primitive
+	};
 
-		if(!paused){
+	Tiny::loop([&](){
 
-			cout<<"NTRIANGLES "<<NTriangles<<endl;
-			cout<<"NPOINTS "<<NPoints<<endl;
+		if(paused) return;
 
-			// Reset Accumulation Buffers
+		// Compute Cost and Gradients, Shift Points
 
-			reset.use();
-			reset.uniform("NTriangles", NTriangles);
-			reset.uniform("NPoints", NPoints);
+		doshift();
 
-			if(NTriangles > NPoints) reset.dispatch(1 + NTriangles/1024);
-			else reset.dispatch(1 + NPoints/1024);
+		// Retrieve Data from Compute Shader
 
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		tenergybuf.retrieve(NTriangles, err);
+		tcolnumbuf.retrieve(NTriangles, cn);
+		pointbuf->retrieve(points);
 
-			// Accumulate Buffers
+		// TOPOLOGICAL OPTIMIZATIONS
 
-			triangleshader.use();
-			triangleshader.texture("imageTexture", tex);		//Load Texture
-			triangleshader.uniform("mode", 0);
-			triangleshader.uniform("KTriangles", KTriangles);
-			triangleshader.uniform("RATIO", RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP);
+		if( geterr() < 1E-3 ){
 
-			// Average Accmulation Buffers, Compute Color!
-
-			average.use();
-			average.uniform("NTriangles", NTriangles);
-			average.dispatch(1 + NTriangles/1024);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			// Compute the Cost for every Triangle
-
-			triangleshader.use();
-			triangleshader.texture("imageTexture", tex);		//Load Texture
-			triangleshader.uniform("mode", 1);
-			triangleshader.uniform("KTriangles", KTriangles);
-			triangleshader.uniform("RATIO", RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP);
-
-
-
-			// Compute the Gradients (One per Triangle)
-
-			gradient.use();
-			gradient.uniform("K", KTriangles);
-			gradient.uniform("RATIO", RATIO);
-			gradient.dispatch(1 + KTriangles/1024);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			// Shift the Points
-
-			shift.use();
-			shift.uniform("NPoints", NPoints);
-			shift.uniform("RATIO", RATIO);
-			shift.dispatch(1 + NPoints/1024);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-
-
-
-
-			// Render Image to Screen
-
-			triangleshader.use();
-			triangleshader.texture("imageTexture", tex);		//Load Texture
-			triangleshader.uniform("mode", 2);
-			triangleshader.uniform("K", KTriangles);
-			triangleshader.uniform("RATIO", RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP);
-
-			point.use();
-			point.uniform("RATIO", RATIO);
-			pointmesh.render(GL_POINTS);
-
-			linestrip.use();
-			linestrip.uniform("RATIO", RATIO);
-			linestripinstance.render(GL_LINE_STRIP);
-
-
-
-
-			// Retrieve Data
-
-			tenergybuf.retrieve(NTriangles, err);
-			tcolnumbuf.retrieve(NTriangles, cn);
-			pointbuf->retrieve(points);			                            //Retrieve Data from Compute Shader
-
-			// TOPOLOGICAL OPTIMIZATIONS
-
-			maxerr = 0;
-			int tta = -1;
-			for(size_t i = 0; i < KTriangles; i++){
-				if(cn[i] == 0) continue;
-				if(cn[i] <= 100) continue;
-				if(sqrt(err[i]) >= maxerr){
-					maxerr = sqrt(err[i]);
-					tta = i;
-				}
-			}
-
+			int tta = maxerrid();
 			if(tta >= 0)
 			if(split(tta)){
 
+				// Update Buffers
+
 				trianglebuf->fill(triangles);
 				pointbuf->fill(points);
-
 				triangleinstance.bind<ivec4>("in_Index", trianglebuf);
-				triangleinstance.SIZE = KTriangles;
 				linestripinstance.bind<ivec4>("in_Index", trianglebuf);
+				triangleinstance.SIZE = KTriangles;
 				linestripinstance.SIZE = KTriangles;
 				pointmesh.SIZE = NPoints;
 
-				reset.use();
-				reset.uniform("NTriangles", NTriangles);
-				reset.uniform("NPoints", NPoints);
-
-				if(NTriangles > NPoints) reset.dispatch(1 + NTriangles/1024);
-				else reset.dispatch(1 + NPoints/1024);
-
-				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-				// Accumulate Buffers
-
-				triangleshader.use();
-				triangleshader.texture("imageTexture", tex);		//Load Texture
-				triangleshader.uniform("mode", 0);
-				triangleshader.uniform("KTriangles", KTriangles);
-				triangleshader.uniform("RATIO", RATIO);
-				triangleinstance.render(GL_TRIANGLE_STRIP);
-
-				// Average Accmulation Buffers, Compute Color!
-
-				cout<<NTriangles<<endl;
-
-				average.use();
-				average.uniform("NTriangles", NTriangles);
-				average.dispatch(1 + NTriangles/1024);
-				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-				// Compute the Cost for every Triangle
+				computecolors();
 
 				triangleshader.use();
 				triangleshader.texture("imageTexture", tex);		//Load Texture
@@ -255,82 +213,23 @@ int main( int argc, char* args[] ) {
 
 			}
 
-			triangleshader.use();
-			triangleshader.texture("imageTexture", tex);		//Load Texture
-			triangleshader.uniform("mode", 2);
-			triangleshader.uniform("K", KTriangles);
-			triangleshader.uniform("RATIO", RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP);
+		}
 
-		//	point.use();
-		//	pointmesh.render(GL_POINTS);
+		if(optimize()){
 
-		//	linestrip.use();
-		//	linestripinstance.render(GL_LINE_STRIP);
+			// Update Buffers
 
-
-
-
-			if(optimize()){
-
-				// Update Buffers
-
-				trianglebuf->fill(triangles);
-				pointbuf->fill(points);
-				triangleinstance.bind<ivec4>("in_Index", trianglebuf);
-				triangleinstance.SIZE = KTriangles;
-				linestripinstance.bind<ivec4>("in_Index", trianglebuf);
-				linestripinstance.SIZE = KTriangles;
-				pointmesh.SIZE = NPoints;
-
-			}
+			trianglebuf->fill(triangles);
+			pointbuf->fill(points);
+			triangleinstance.bind<ivec4>("in_Index", trianglebuf);
+			linestripinstance.bind<ivec4>("in_Index", trianglebuf);
+			triangleinstance.SIZE = KTriangles;
+			linestripinstance.SIZE = KTriangles;
+			pointmesh.SIZE = NPoints;
 
 		}
 
-		else {
-
-			reset.use();
-			reset.uniform("NTriangles", NTriangles);
-			reset.uniform("NPoints", NPoints);
-
-			if(NTriangles > NPoints) reset.dispatch(1 + NTriangles/1024);
-			else reset.dispatch(1 + NPoints/1024);
-
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			triangleshader.use();
-			triangleshader.texture("imageTexture", tex);		//Load Texture
-			triangleshader.uniform("mode", 0);
-			triangleshader.uniform("KTriangles", KTriangles);
-			triangleshader.uniform("RATIO", RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP);
-
-			// Average Accmulation Buffers, Compute Color!
-
-			average.use();
-			average.uniform("NTriangles", NTriangles);
-			average.dispatch(1 + NTriangles/1024);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			triangleshader.use();
-			triangleshader.texture("imageTexture", tex);		//Load Texture
-			triangleshader.uniform("mode", 2);
-			triangleshader.uniform("K", KTriangles);
-			triangleshader.uniform("RATIO", RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP);
-
-		//	point.use();
-		//	pointmesh.render(GL_POINTS);
-
-		//	linestrip.use();
-		//	linestripinstance.render(GL_LINE_STRIP);
-
-
-		}
-
-	};
-
-	Tiny::loop([&](){});
+	});
 
 	delete[] err;
 	delete[] cn;

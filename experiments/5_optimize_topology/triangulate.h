@@ -36,15 +36,15 @@ vector<int> halfedges;	//Triangle Halfedge Indexing
 int NPoints;
 int KTriangles;
 int NTriangles;
-const int MAXTriangles = 64000;
+const int MAXTriangles = 128000;
 
 void initialize( const int K = 1024 ){
 
-	pointbuf = new Buffer(16*MAXTriangles, (vec2*)NULL);
-	trianglebuf = new Buffer(16*MAXTriangles, (ivec4*)NULL);
+	pointbuf = new Buffer(MAXTriangles, (vec2*)NULL);
+	trianglebuf = new Buffer(MAXTriangles, (ivec4*)NULL);
 
-	err = new int[16*MAXTriangles];
-	cn = new int[16*MAXTriangles];
+	err = new int[MAXTriangles];
+	cn = new int[MAXTriangles];
 
   // Create a Delaunator!
 
@@ -86,7 +86,11 @@ void initialize( const int K = 1024 ){
 
 }
 
-// Triangle Helper Functions
+/*
+================================================================================
+											Triangulation Helper Functions
+================================================================================
+*/
 
 // Angle Opposite to Half-Edge
 
@@ -105,8 +109,6 @@ float angle( int ha ){
 
 // Length of Half-Edge
 
-// Angle Opposite to Half-Edge
-
 float hlength( int ha ){
 
 	int ta = ha/3;	// Triangle Index
@@ -116,6 +118,8 @@ float hlength( int ha ){
 	return length(pab - paa);
 
 }
+
+// Number of Vertices on Boundary (Triangle)
 
 int boundary( int t ){
 
@@ -140,18 +144,13 @@ int boundary( int t ){
 
 }
 
-// Topological Alterations
-
 /*
-
-		Topological Optimization:
-			- Collapse Vertices (Thin Triangles)
-			- Delaunay Flip (Flat Triangles)
-			- Centroid Split (Bad Triangles)
-
+================================================================================
+									Triangulation Topological Alterations
+================================================================================
 */
 
-// Remove Flat Boundary Triangle
+// Prune Triangle from Triangulation Boundary
 
 bool prune( int ta ){
 
@@ -195,7 +194,6 @@ bool prune( int ta ){
 	NTriangles = (1+12)*KTriangles;
 
 	cout<<"PRUNED"<<endl;
-
 	return true;
 
 }
@@ -221,13 +219,13 @@ bool flip( int ha ){
 
 	// Retrieve Half-Edge Indices
 
-	int ta0 = halfedges[3*ta+(ha+0)%3];	//h3
-	int ta1 = halfedges[3*ta+(ha+1)%3];	//h6
-	int ta2 = halfedges[3*ta+(ha+2)%3];	//h7
+	int ta0 = halfedges[3*ta+(ha+0)%3];
+	int ta1 = halfedges[3*ta+(ha+1)%3];
+	int ta2 = halfedges[3*ta+(ha+2)%3];
 
-	int tb0 = halfedges[3*tb+(hb+0)%3];	//h0
-	int tb1 = halfedges[3*tb+(hb+1)%3];	//h8
-	int tb2 = halfedges[3*tb+(hb+2)%3];	//h9
+	int tb0 = halfedges[3*tb+(hb+0)%3];
+	int tb1 = halfedges[3*tb+(hb+1)%3];
+	int tb2 = halfedges[3*tb+(hb+2)%3];
 
 	// Retrieve Triangle Vertex Indices
 
@@ -279,11 +277,11 @@ bool collapse( int ha ){
 
 	// Retrieve Exterior Half-Edge Indices
 
-	int ta1 = halfedges[3*ta+(ha+1)%3];	//a1
-	int ta2 = halfedges[3*ta+(ha+2)%3];	//a2
+	int ta1 = halfedges[3*ta+(ha+1)%3];
+	int ta2 = halfedges[3*ta+(ha+2)%3];
 
-	int tb1 = halfedges[3*tb+(hb+1)%3];	//b1
-	int tb2 = halfedges[3*tb+(hb+2)%3];	//b2
+	int tb1 = halfedges[3*tb+(hb+1)%3];
+	int tb2 = halfedges[3*tb+(hb+2)%3];
 
 	// Get the Two Vertices, Merge (Add new Point)
 
@@ -387,7 +385,7 @@ bool collapse( int ha ){
 
 }
 
-// Triangle Splitting
+// Triangle Centroid Splitting
 
 bool split( int ta ){
 
@@ -416,8 +414,6 @@ bool split( int ta ){
 
 	// Interior Half-Edge Reference Shift
 
-	//halfedges.resize(triangles.size()*3);
-
 	halfedges[3*ta + 0] = tax;
 	halfedges[3*ta + 1] = 3*tb + 2;
 	halfedges[3*ta + 2] = 3*tc + 1;
@@ -430,7 +426,7 @@ bool split( int ta ){
 	halfedges.push_back(3*ta + 2);
 	halfedges.push_back(3*tb + 1);
 
-	// Exterior Half-Edge Refrence Shift
+	// Exterior Half-Edge Reference Shift
 
 	if(tax >= 0)	halfedges[tax] = 3*ta + 0;
 	if(tay >= 0)	halfedges[tay] = 3*tb + 0;
@@ -444,6 +440,50 @@ bool split( int ta ){
 
 	cout<<"SPLIT"<<endl;
 	return true;
+
+}
+
+// Error Computations
+
+
+float toterr = 1.0f;
+float newerr;
+float relerr;
+float maxerr;
+
+float geterr(){
+
+	maxerr = 0.0f;
+	newerr = 0.0f;
+
+	for(size_t i = 0; i < KTriangles; i++){
+		if(cn[i] == 0) continue;
+		newerr += err[i];
+		if(sqrt(err[i]) >= maxerr)
+			maxerr = sqrt(err[i]);
+	}
+
+	relerr = (toterr - newerr)/toterr;
+	toterr = newerr;
+
+	return abs(relerr);
+
+}
+
+int maxerrid(){
+
+	maxerr = 0;
+	int tta = -1;
+	for(size_t i = 0; i < KTriangles; i++){
+		if(cn[i] == 0) continue;
+		if(cn[i] <= 100) continue;
+		if(sqrt(err[i]) >= maxerr){
+			maxerr = sqrt(err[i]);
+			tta = i;
+		}
+	}
+
+	return tta;
 
 }
 
@@ -461,37 +501,10 @@ bool split( int ta ){
 
 */
 
-float toterr = 1.0f;
-float newerr;
-float relerr;
-float maxerr;
 
 bool optimize(){
 
 	cout<<"OPTIMIZE"<<endl;
-
-	/*
-
-	maxerr = 0.0f;
-	newerr = 0.0f;
-
-	for(size_t i = 0; i < KTriangles; i++){
-		if(cn[i] == 0) continue;
-		newerr += err[i];
-		if(sqrt(err[i]) >= maxerr)
-			maxerr = sqrt(err[i]);
-	}
-
-	relerr = (toterr - newerr)/toterr;
-	toterr = newerr;
-
-	cout<<"RELERR "<<abs(relerr)<<endl;
-	if( abs(relerr) > 1E-6 )
-		return false;
-
-	*/
-
-	bool altered = false;
 
 	// Prune Flat Boundary Triangles
 
@@ -499,7 +512,7 @@ bool optimize(){
 	if(boundary(ta) == 3)
 		prune(ta);
 
-// Attempt a Delaunay Flip on a triangle's Largest Angle
+	// Attempt a Delaunay Flip on a Triangle's Largest Angle
 
 	for(size_t ta = 0; ta < KTriangles; ta++){
 
@@ -530,38 +543,6 @@ bool optimize(){
 			break;
 		}
 
-	}
-
-	*/
-
-
-
-
-
-
-	/*
-
-	if(altered){
-		toterr = 1;
-		return true;
-	}
-
-
-
-	maxerr = 0;
-	int tta = 0;
-	for(size_t i = 0; i < KTriangles; i++){
-		if(cn[i] == 0) continue;
-		if(err[i] >= maxerr){
-			maxerr = err[i];
-			tta = i;
-		}
-	}
-
-	int b = KTriangles;
-	for(size_t i = 0; i < b; i++){
-		if(err[i] > 0.9*maxerr)
-			split(tta);
 	}
 
 	*/
