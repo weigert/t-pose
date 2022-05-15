@@ -25,7 +25,7 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initialize();
+	initialize( 3000 );
 	cout<<"Number of Triangles: "<<trianglebuf->SIZE<<endl;
 
 	Triangle triangle;
@@ -158,34 +158,6 @@ int main( int argc, char* args[] ) {
 		pointmesh.render(GL_POINTS);
 
 	};
-
-	/*
-
-	float t = 0; //Time
-
-	FastNoiseLite noise;
-	noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-	noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-	noise.SetFractalOctaves(8.0f);
-	noise.SetFractalLacunarity(2.0f);
-	noise.SetFractalGain(0.6f);
-	noise.SetFrequency(1.0);
-
-	Tiny::loop([&](){ //Execute every frame
-
-		t += 0.005;
-
-		for(unsigned int i = 0; i < points.size(); i++){
-			offset[i].x = points[i].x + 0.5f*0.1*noise.GetNoise(points[i].x, points[i].y, t);
-			offset[i].y = points[i].y + 0.5f*0.1*noise.GetNoise(points[i].x, points[i].y, -t);
-		}
-
-		pointbuf->fill<vec2>(offset);
-
-	});
-
-	*/
-
 
 	int n = 0;
 
