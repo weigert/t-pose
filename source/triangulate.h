@@ -1,5 +1,7 @@
 // triangulate.h
 
+#include <fstream>
+
 #include "include/delaunator-cpp/delaunator-header-only.hpp"
 #include "include/poisson.h"
 
@@ -29,8 +31,14 @@ struct TLineStrip : Model {
 
 Buffer* trianglebuf;
 Buffer* pointbuf;
+Buffer* tcolaccbuf;
+Buffer* tcolnumbuf;
+Buffer* tenergybuf;
+Buffer* pgradbuf;
+
 int* err;
 int* cn;
+ivec4* col;
 
 vector<vec2> points;			//Coordinates for Delaunation
 vector<ivec4> triangles;	//Triangle Point Indexing
@@ -41,13 +49,25 @@ int KTriangles;
 int NTriangles;
 const int MAXTriangles = 128000;
 
-void initialize( const int K = 0 ){
+void initbufs(){
 
 	pointbuf = new Buffer(MAXTriangles, (vec2*)NULL);
 	trianglebuf = new Buffer(MAXTriangles, (ivec4*)NULL);
 
+	tcolaccbuf = new Buffer( MAXTriangles, (ivec4*)NULL );		// Raw Color
+	tcolnumbuf = new Buffer( MAXTriangles, (int*)NULL );			// Triangle Size (Pixels)
+	tenergybuf = new Buffer( MAXTriangles, (int*)NULL );			// Triangle Energy
+	pgradbuf = new Buffer( MAXTriangles, (ivec2*)NULL );
+
 	err = new int[MAXTriangles];
 	cn = new int[MAXTriangles];
+	col = new ivec4[MAXTriangles];
+
+}
+
+void initialize( const int K = 0 ){
+
+	initbufs();
 
   // Create a Delaunator!
 
@@ -528,6 +548,8 @@ bool optimize(){
 
 	}
 
+	/*
+
 	// Collapse Small Edges
 
 	for(size_t ta = 0; ta < triangles.size(); ta++){
@@ -542,6 +564,150 @@ bool optimize(){
 
 	}
 
+	*/
+
 	return true;
+
+}
+
+/*
+================================================================================
+														Triangulation IO
+================================================================================
+*/
+
+// Export a Triangulation
+
+void write( string file ){
+
+	cout<<"Exporting to file "<<file<<endl;
+	ofstream out(file, ios::out);
+	if(!out.is_open()){
+		cout<<"Failed to open file "<<file<<endl;
+		exit(0);
+	}
+
+	// Export Vertices
+
+	out<<"VERTEX"<<endl;
+	for(auto& p: points)
+		out<<p.x<<" "<<p.y<<endl;
+
+	// Export Halfedges
+
+	out<<"HALFEDGE"<<endl;
+	for(size_t i = 0; i < halfedges.size()/3; i++)
+		out<<halfedges[3*i+0]<<" "<<halfedges[3*i+1]<<" "<<halfedges[3*i+2]<<endl;
+
+	// Export Triangles
+
+	out<<"TRIANGLE"<<endl;
+	for(auto& t: triangles)
+		out<<t.x<<" "<<t.y<<" "<<t.z<<endl;
+
+	// Export Colors
+
+	tcolaccbuf->retrieve(KTriangles, col);
+
+	out<<"COLOR"<<endl;
+	for(size_t i = 0; i < triangles.size(); i++)
+		out<<col[i].x<<" "<<col[i].y<<" "<<col[i].z<<endl;
+
+	out.close();
+
+}
+
+// Import a Triangulation
+
+void read( string file ){
+
+	cout<<"Importing from file "<<file<<endl;
+	ifstream in(file, ios::in);
+	if(!in.is_open()){
+		cout<<"Failed to open file "<<file<<endl;
+		exit(0);
+	}
+
+	points.clear();
+	triangles.clear();
+
+	vec2 p = vec2(0);
+	ivec4 c = ivec4(0);
+	ivec4 t = ivec4(0);
+	ivec3 h = ivec3(0);
+
+	string pstring;
+
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "HALFEDGE")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
+		if(m == 2) points.push_back(p);
+
+	}
+
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "TRIANGLE")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &h.x, &h.y, &h.z);
+		if(m == 3){
+			halfedges.push_back(h.x);
+			halfedges.push_back(h.y);
+			halfedges.push_back(h.z);
+		}
+
+	}
+
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "COLOR")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &t.x, &t.y, &t.z);
+		if(m == 3) triangles.push_back(t);
+
+	}
+
+	NPoints = points.size();
+	KTriangles = triangles.size();
+	NTriangles = (1+12)*KTriangles;
+
+	int nc = 0;
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &c.x, &c.y, &c.z);
+		if(m == 3){
+			for(size_t i = 0; i < 13; i++)
+				col[i*KTriangles + nc] = c;
+			nc++;
+		}
+
+	}
+
+	pointbuf->fill(points);
+	trianglebuf->fill(triangles);
+	tcolaccbuf->fill(NTriangles, col);
+
+	in.close();
 
 }
