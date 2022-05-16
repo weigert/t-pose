@@ -275,26 +275,17 @@ bool collapse( int ha ){
 
 	if(hb < 0)	return false; // No Opposing Half-Edge
 
-	// Retrieve Exterior Half-Edge Indices
-
-	int ta1 = halfedges[3*ta+(ha+1)%3];
-	int ta2 = halfedges[3*ta+(ha+2)%3];
-
-	int tb1 = halfedges[3*tb+(hb+1)%3];
-	int tb2 = halfedges[3*tb+(hb+2)%3];
-
-	// Get the Two Vertices, Merge (Add new Point)
+	if(boundary(ta) > 0 			// No Boundary Collapsing
+	|| boundary(tb) > 0)
+		return false;
 
 	int ia = triangles[ta][(ha+0)%3];
 	int ib = triangles[tb][(hb+0)%3];
 
-	// No collapsing on Boundary
-
-	if(boundary(ta) > 0 || boundary(tb) > 0)
-		return false;
-
 	if(length(points[ia] - points[ib]) > 0.01)
 		return false;
+
+	// Add new Point
 
 	vec2 vn = 0.5f*(points[ia] + points[ib]);
 	int in = points.size();
@@ -309,6 +300,14 @@ bool collapse( int ha ){
 		if(t.z == ia || t.z == ib) t.z = in;
 
 	}
+
+	// Retrieve Exterior Half-Edge Indices
+
+	int ta1 = halfedges[3*ta+(ha+1)%3];
+	int ta2 = halfedges[3*ta+(ha+2)%3];
+
+	int tb1 = halfedges[3*tb+(hb+1)%3];
+	int tb2 = halfedges[3*tb+(hb+2)%3];
 
 	// Adjust Exterior Half-Edges
 
@@ -504,7 +503,7 @@ int maxerrid(){
 
 bool optimize(){
 
-	cout<<"OPTIMIZE"<<endl;
+	// cout<<"OPTIMIZE"<<endl;
 
 	// Prune Flat Boundary Triangles
 
@@ -526,8 +525,6 @@ bool optimize(){
 
 	}
 
-	/*
-
 	// Collapse Small Edges
 
 	for(size_t ta = 0; ta < triangles.size(); ta++){
@@ -538,14 +535,9 @@ bool optimize(){
 			minlength = hlength( ++ha );
 		if(hlength( ha + 1 ) < minlength)
 			minlength = hlength( ++ha );
-		if(collapse(ha)){
-			altered = true;
-			break;
-		}
+		collapse(ha);
 
 	}
-
-	*/
 
 	return true;
 

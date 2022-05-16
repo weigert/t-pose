@@ -28,7 +28,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("canyon.png"));		//Load Texture with Image
+	Texture tex(image::load("index.png"));		//Load Texture with Image
 	Square2D flat;														//Create Primitive Model
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
@@ -132,8 +132,6 @@ int main( int argc, char* args[] ) {
 
 	auto doshift = [&](){
 
-		doenergy(true);
-
 		gradient.use();
 		gradient.uniform("K", KTriangles);
 		gradient.uniform("RATIO", RATIO);
@@ -158,9 +156,9 @@ int main( int argc, char* args[] ) {
 		triangleshader.uniform("RATIO", RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP);
 
-		point.use();
-		point.uniform("RATIO", RATIO);
-		pointmesh.render(GL_POINTS);
+	//	point.use();
+	//	point.uniform("RATIO", RATIO);
+	//	pointmesh.render(GL_POINTS);
 
 		linestrip.use();
 		linestrip.uniform("RATIO", RATIO);
@@ -182,6 +180,8 @@ int main( int argc, char* args[] ) {
 
 	computecolors();
 
+	// Main Functions
+
 	Tiny::view.pipeline = [&](){
 
 		Tiny::view.target(color::black);				//Target Main Screen
@@ -197,6 +197,7 @@ int main( int argc, char* args[] ) {
 
 		// Compute Cost and Gradients, Shift Points
 
+		doenergy( true );
 		doshift();
 
 		// Retrieve Data from Compute Shader
