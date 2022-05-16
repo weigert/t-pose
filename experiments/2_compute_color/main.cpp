@@ -2,31 +2,34 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-#include "FastNoiseLite.h"
-#include "delaunator-cpp/delaunator-header-only.hpp"
-#include "poisson.h"
-#include "triangulate.h"
+const float RATIO = 12.0f/8.0f;
+
+#include "../../source/triangulate.h"
 
 int main( int argc, char* args[] ) {
 
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
-	
+
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 1200, 800);
 	Tiny::event.handler = [](){};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("canyon.png"));		//Load Texture with Image
-	Square2D flat;														//Create Primitive Model
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+
+	Texture tex(image::load("../../resource/canyon.png"));		//Load Texture with Image
+	Square2D flat;																						//Create Primitive Model
+
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
 
-	initialize();
+	initialize( 1024 );
 	cout<<"Number of Triangles: "<<trianglebuf->SIZE<<endl;
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
-	triangleinstance.bind<vec3>("in_Index", trianglebuf);
+	triangleinstance.bind<ivec4>("in_Index", trianglebuf);
 
 	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position", "in_Index"}, {"points", "colacc", "colnum"});
 	triangleshader.bind<vec2>("points", pointbuf);
@@ -52,63 +55,6 @@ int main( int argc, char* args[] ) {
 	average.bind<ivec4>("colacc", &tcolaccbuf);
 	average.bind<int>("colnum", &tcolnumbuf);
 
-	/*
-	compute.bind<float>("buff", &buf);							    //Upload the Buffer
-  compute.use();																        //Use the Shader
-
-  int K = 256;                                          //K-Ary Merge
-  compute.uniform("K", K);                              //Set Uniform
-
-  std::cout<<"Parallel ";
-  timer::benchmark<std::chrono::milliseconds>([&](){
-
-  for(int rest = size%K, stride = size/K;
-      stride >= 1 || rest > 0;
-      rest = stride%K, stride /= K){
-
-    compute.uniform("rest", rest);                      //Set Uniforms
-    compute.uniform("stride", stride);                  //
-    compute.dispatch(1+stride/1024);                    //Round-Up Division
-
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-  }
-
-  buf.retrieve(buffer);
-
-	*/
-
-	/*
-
-		Procedure:
-
-			Generate an Initial Triangulation...
-
-			1. Create Raw Vertices, Store in SSBO
-			2. Create Initial Triangulation from Half-Edges, Edges
-
-			Create Renderable Triangle Primitives
-
-			3. Use an Index Buffer to Render the Triangles, No Depth Test!
-			4. Use a geometry shader to create 12 triangles for each triangle,
-					representing possible vertex shifts.
-			5. Compute the total energy for each of the 12 triangles, storing it in an SSBO
-			6. We can compute the gradient of a triangles energy for the given triangle, in dependency of the vertex.
-
-			7. We can compute the gradient of the vertex energy.
-			8. We can adjust the vertex positions and iterate
-
-			Adjust the topology:
-
-			9. Split triangles where appropriate,
-			10. Merge triangles where appropriate using some check
-			11. ???
-
-			Use the initial triangulation and topology to warp the image to another one!
-			Estimate pose!
-
-	*/
-
 	Tiny::view.pipeline = [&](){
 
 		Tiny::view.target(color::black);				//Target Main Screen
@@ -123,8 +69,8 @@ int main( int argc, char* args[] ) {
 		// Reset Accumulation Buffers
 
 		reset.use();
-		reset.uniform("N", (int)trianglebuf->SIZE);
-		reset.dispatch(1+trianglebuf->SIZE/1024);
+		reset.uniform("N", KTriangles);
+		reset.dispatch(1+KTriangles/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		// Accumulate Buffers
@@ -137,8 +83,8 @@ int main( int argc, char* args[] ) {
 		// Average Accmulation Buffers, Compute Color!
 
 		average.use();
-		average.uniform("N", (int)trianglebuf->SIZE);
-		average.dispatch(1+trianglebuf->SIZE/1024);
+		average.uniform("N", KTriangles);
+		average.dispatch(1+KTriangles/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		// Render with Average Color!
@@ -155,29 +101,7 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	float t = 0; //Time
-
-	FastNoiseLite noise;
-	noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-	noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-	noise.SetFractalOctaves(8.0f);
-	noise.SetFractalLacunarity(2.0f);
-	noise.SetFractalGain(0.6f);
-	noise.SetFrequency(1.0);
-
-	Tiny::loop([&](){ //Execute every frame
-
-		t += 0.005;
-
-		for(unsigned int i = 0; i < points.size(); i++){
-			offset[i].x = points[i].x + 0.5f*0.1*noise.GetNoise(points[i].x, points[i].y, t);
-			offset[i].y = points[i].y + 0.5f*0.1*noise.GetNoise(points[i].x, points[i].y, -t);
-		}
-
-		pointbuf->fill<vec2>(offset);
-
-	});
-
+	Tiny::loop([&](){});
 	Tiny::quit();
 
 	return 0;

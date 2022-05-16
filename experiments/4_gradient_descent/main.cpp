@@ -2,10 +2,9 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-#include "FastNoiseLite.h"
-#include "delaunator-cpp/delaunator-header-only.hpp"
-#include "poisson.h"
-#include "triangulate.h"
+const float RATIO = 12.0f/8.0f;
+
+#include "../../source/triangulate.h"
 
 int main( int argc, char* args[] ) {
 
@@ -17,15 +16,16 @@ int main( int argc, char* args[] ) {
 	Tiny::event.handler = [](){};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("canyon.png"));		//Load Texture with Image
-	Square2D flat;														//Create Primitive Model
+	Texture tex(image::load("../../resource/canyon.png"));		//Load Texture with Image
+	Square2D flat;																						//Create Primitive Model
+
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
 
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initialize( 3000 );
+	initialize( 1024 );
 	cout<<"Number of Triangles: "<<trianglebuf->SIZE<<endl;
 
 	Triangle triangle;

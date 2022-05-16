@@ -26,18 +26,18 @@ void main(){
 
   const uint index = gl_GlobalInvocationID.x;
 
-  if(index < NTriangles){
+  //if(index < NTriangles){
 
     ca[index] = ivec4(0);
     cn[index] = 0;
     en[index] = 0;
 
-  }
+  //}
 
-  if(index < NPoints){
+  //if(index < NPoints){
 
     gr[index] = ivec2(0);
 
-  }
+  //}
 
 };

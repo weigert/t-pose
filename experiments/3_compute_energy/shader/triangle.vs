@@ -1,7 +1,7 @@
 #version 460 core
 
 in vec3 in_Position;
-in ivec3 in_Index;
+in ivec4 in_Index;
 
 flat out int ex_Index;
 

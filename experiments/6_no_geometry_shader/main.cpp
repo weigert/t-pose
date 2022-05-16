@@ -5,10 +5,7 @@
 //const float RATIO = 6.0f/9.0f;
 const float RATIO = 12.0f/8.0f;
 
-#include "FastNoiseLite.h"
-#include "delaunator-cpp/delaunator-header-only.hpp"
-#include "poisson.h"
-#include "triangulate.h"
+#include "../../source/triangulate.h"
 
 int main( int argc, char* args[] ) {
 
@@ -29,7 +26,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("index.png"));		//Load Texture with Image
+	Texture tex(image::load("../../resource/index.png"));		//Load Texture with Image
 	Square2D flat;														//Create Primitive Model
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
@@ -37,7 +34,7 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initialize( 32 );
+	initialize( 0 );
 	cout<<"Number of Triangles: "<<trianglebuf->SIZE<<endl;
 
 	Triangle triangle;
@@ -162,9 +159,9 @@ int main( int argc, char* args[] ) {
 	//	point.uniform("RATIO", RATIO);
 	//	pointmesh.render(GL_POINTS);
 
-		linestrip.use();
-		linestrip.uniform("RATIO", RATIO);
-		linestripinstance.render(GL_LINE_STRIP, KTriangles);
+	//	linestrip.use();
+	//	linestrip.uniform("RATIO", RATIO);
+	//	linestripinstance.render(GL_LINE_STRIP, KTriangles);
 
 	};
 

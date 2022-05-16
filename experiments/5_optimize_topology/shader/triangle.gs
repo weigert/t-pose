@@ -4,7 +4,7 @@ layout (triangles) in;
 layout (triangle_strip, max_vertices = 128) out;
 
 uniform int KTriangles;
-const float dp = 0.01;
+const float dp = 0.05;
 
 in VS_OUT {
   vec2 position;
