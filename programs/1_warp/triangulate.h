@@ -2,9 +2,6 @@
 
 #include <fstream>
 
-#include "include/delaunator-cpp/delaunator-header-only.hpp"
-#include "include/poisson.h"
-
 using namespace glm;
 using namespace std;
 
@@ -40,7 +37,9 @@ int* err;
 int* cn;
 ivec4* col;
 
-vector<vec2> points;			//Coordinates for Delaunation
+vector<vec2> points;					//Coordinates for Delaunation
+vector<vec2> originalpoints;	//Original Point Positions (Pre-Warp)
+
 vector<ivec4> triangles;	//Triangle Point Indexing
 vector<int> halfedges;	//Triangle Halfedge Indexing
 
@@ -62,50 +61,6 @@ void initbufs(){
 	err = new int[MAXTriangles];
 	cn = new int[MAXTriangles];
 	col = new ivec4[MAXTriangles];
-
-}
-
-void initialize( const int K = 0 ){
-
-	initbufs();
-
-  // Create a Delaunator!
-
-	points.emplace_back(-RATIO,-1);
-	points.emplace_back(-RATIO, 1);
-	points.emplace_back( RATIO,-1);
-	points.emplace_back( RATIO, 1);
-
-//	for(float x = -RATIO; x <= RATIO; x += RATIO/6 )
-//	for(float y = -1; y <= 1; y += 1.0f/4 ){
-//		points.emplace_back(x, y);
-//	}
-
-	while(points.size() < K/2)
-		sample::disc(points, K, vec2(-12.0f/8.0f, -1.0f), vec2(12.0f/8.0f, 1.0f));
-
-	vector<double> coords;					//Coordinates for Delaunation
-  for(size_t i = 0; i < points.size(); i++){
-    coords.push_back(points[i].x);
-    coords.push_back(points[i].y);
-  }
-
-	delaunator::Delaunator d(coords);			//Compute Delaunay Triangulation
-
-	pointbuf->fill(points);
-
-  for(size_t i = 0; i < d.triangles.size()/3; i++){
-		triangles.emplace_back(d.triangles[3*i+0], d.triangles[3*i+1], d.triangles[3*i+2], 0);
-		halfedges.push_back(d.halfedges[3*i+0]);
-		halfedges.push_back(d.halfedges[3*i+1]);
-		halfedges.push_back(d.halfedges[3*i+2]);
-	}
-
-	trianglebuf->fill(triangles);
-
-	NPoints = points.size();
-	KTriangles = triangles.size();
-	NTriangles = (1+12)*KTriangles;
 
 }
 
@@ -509,6 +464,42 @@ int maxerrid(){
 
 }
 
+// Point / Triangle Parameterization
+
+// Compute the Parameters of a Point in a Triangle
+
+vec3 barycentric(vec2 p, ivec4 t, vector<vec2>& v){
+
+	mat3 R(
+		1,1,1,
+		v[t.x].x, v[t.y].x, v[t.z].x,
+		v[t.x].y, v[t.y].y, v[t.z].y
+	);
+
+	return inverse(R)*vec3(1, p.x, p.y);
+
+}
+
+// Check if a Point is in a Triangle
+
+bool intriangle( vec2 p, ivec4 t, vector<vec2>& v){
+
+	vec3 s = barycentric(p, t, v);
+	if(s.x <= 0 || s.x >= 1) return false;
+	if(s.y <= 0 || s.y >= 1) return false;
+	if(s.z <= 0 || s.z >= 1) return false;
+	return true;
+
+}
+
+// Map Point in Triangle
+
+vec2 cartesian(vec3 s, ivec4 t, vector<vec2>& v){
+
+	return s.x * v[t.x] + s.y * v[t.y] + s.z * v[t.z];
+
+}
+
 /*
 ================================================================================
 											Topological Optimization Strategy
@@ -630,6 +621,8 @@ void read( string file ){
 
 	points.clear();
 	triangles.clear();
+	originalpoints.clear();
+	halfedges.clear();
 
 	vec2 p = vec2(0);
 	ivec4 c = ivec4(0);
@@ -648,7 +641,10 @@ void read( string file ){
 			break;
 
 		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
-		if(m == 2) points.push_back(p);
+		if(m == 2){
+			points.push_back(p);
+			originalpoints.push_back(p);
+		}
 
 	}
 
@@ -707,6 +703,30 @@ void read( string file ){
 	pointbuf->fill(points);
 	trianglebuf->fill(triangles);
 	tcolaccbuf->fill(NTriangles, col);
+
+	cout<<"Number of Triangles: "<<KTriangles<<endl;
+
+
+				// Load new Points!
+				// Check if point is inside
+
+
+				//float s = 1/(2*Area)
+
+				/*
+					Hierarchical Warping:
+						-> Take Initial Positions,
+						-> Take New Positions,
+
+						Compute a "transformation" that is applied to all points INSIDE the region!
+						When loading a new triangulation, take every point where it is and transform it.
+
+						Note to store the original positions so this can again be used for the transformation.
+
+						That is all.
+
+				*/
+
 
 	in.close();
 

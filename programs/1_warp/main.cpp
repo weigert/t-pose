@@ -5,7 +5,7 @@
 //const float RATIO = 6.0f/9.0f;
 float RATIO = 12.0f/6.75f;
 
-#include "../../source/triangulate.h"
+#include "triangulate.h"
 
 int main( int argc, char* args[] ) {
 
@@ -46,8 +46,8 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_DEPTH_TEST);
 
 	initbufs();
-	read("triangulation_30.tri");
-	cout<<"Number of Triangles: "<<KTriangles<<endl;
+	read("triangulation_"+to_string(importlist.back())+".tri");
+	importlist.pop_back();
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
@@ -188,6 +188,26 @@ int main( int argc, char* args[] ) {
 
 		tenergybuf->retrieve(NTriangles, err);
 		pointbuf->retrieve(points);
+
+		if( geterr() < 1E-3 ){
+
+			cout<<"RETRIANGULATE"<<endl;
+
+			paused = true;
+
+			if(!importlist.empty()){
+
+				read("triangulation_"+to_string(importlist.back())+".tri");
+				importlist.pop_back();
+
+				doreset();
+				doenergy();
+
+				draw();
+
+			}
+
+		}
 
 	});
 
