@@ -14,7 +14,7 @@ int main( int argc, char* args[] ) {
 	Tiny::view.antialias = 0;
 //	Tiny::benchmark = true;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960/2, 540/2);
 
 	bool paused = true;
 
@@ -183,12 +183,16 @@ int main( int argc, char* args[] ) {
 
 	vector<int> exportlist = {
 		1000,
+		900,
+		800,
+		700,
+		600,
 		500,
 		400,
 		300,
 		200,
 		100,
-		30
+		50
 	};
 
 	int NN = 0;
@@ -211,9 +215,11 @@ int main( int argc, char* args[] ) {
 
 		bool updated = false;
 
-		if( geterr() < 1E-3 ){
+		if( geterr() < 1E-4 ){
 
 			// Make sure we start exportin'
+
+
 
 			if(exportlist.empty()){
 				Tiny::event.quit = true;
@@ -221,9 +227,11 @@ int main( int argc, char* args[] ) {
 			}
 
 			if(KTriangles >= exportlist.back()){
-				write("triangulation_"+to_string(exportlist.back())+".tri");
+				write(to_string(exportlist.back())+".tri");
 				exportlist.pop_back();
 			}
+
+
 
 			int tta = maxerrid();
 			if(tta >= 0)
@@ -246,7 +254,7 @@ int main( int argc, char* args[] ) {
 
 		if(updated){
 			upload();
-			cout<<"KTRIANGLES "<<KTriangles<<endl;
+		//	cout<<"KTRIANGLES "<<KTriangles<<endl;
 		}
 
 	});

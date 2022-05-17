@@ -17,11 +17,15 @@ int main( int argc, char* args[] ) {
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
 
 	bool paused = true;
+	bool donext = false;
 
 	Tiny::event.handler = [&](){
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
 			paused = !paused;
+
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
+			donext = true;
 
 	};
 	Tiny::view.interface = [](){};
@@ -30,13 +34,17 @@ int main( int argc, char* args[] ) {
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
-		1000,
+	//	1000,
+	//	900,
+	//	800,
+	//	700,
+	//	600,
 		500,
 		400,
 		300,
 		200,
 		100,
-		30
+		50
 	};
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
@@ -46,7 +54,7 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_DEPTH_TEST);
 
 	initbufs();
-	read("triangulation_"+to_string(importlist.back())+".tri");
+	read(to_string(importlist.back())+".tri");
 	importlist.pop_back();
 
 	Triangle triangle;
@@ -105,6 +113,13 @@ int main( int argc, char* args[] ) {
 
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+		triangleshader.use();
+		triangleshader.texture("imageTexture", tex);		//Load Texture
+		triangleshader.uniform("mode", 0);
+		triangleshader.uniform("KTriangles", KTriangles);
+		triangleshader.uniform("RATIO", RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, NTriangles);
+
 	};
 
 	auto doenergy = [&](){
@@ -147,9 +162,9 @@ int main( int argc, char* args[] ) {
 	//	point.uniform("RATIO", RATIO);
 	//	pointmesh.render(GL_POINTS);
 
-	//	linestrip.use();
-	//	linestrip.uniform("RATIO", RATIO);
-	//	linestripinstance.render(GL_LINE_STRIP, KTriangles);
+		linestrip.use();
+		linestrip.uniform("RATIO", RATIO);
+		linestripinstance.render(GL_LINE_STRIP, KTriangles);
 
 	};
 
@@ -189,21 +204,30 @@ int main( int argc, char* args[] ) {
 		tenergybuf->retrieve(NTriangles, err);
 		pointbuf->retrieve(points);
 
-		if( geterr() < 1E-3 ){
-
+	//	if( geterr() < 1E-6 ){
+		if(donext){
+			donext = false;
 			cout<<"RETRIANGULATE"<<endl;
 
 			paused = true;
 
 			if(!importlist.empty()){
 
-				read("triangulation_"+to_string(importlist.back())+".tri");
+				read(to_string(importlist.back())+".tri");
 				importlist.pop_back();
 
 				doreset();
 				doenergy();
 
 				draw();
+
+			}
+
+			else{
+
+				Tiny::event.quit = true;
+				write("out.tri");
+				return;
 
 			}
 

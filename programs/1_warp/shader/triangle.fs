@@ -26,6 +26,12 @@ void main(){
 
   // Accumulate Cost Function
 
+  if( mode == 0) {
+
+    atomicAdd(cn[vs_out.index], 1);
+
+  }
+
   if( mode == 1 ){
 
     vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb);

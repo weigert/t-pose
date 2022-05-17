@@ -38,7 +38,7 @@ int* cn;
 ivec4* col;
 
 vector<vec2> points;					//Coordinates for Delaunation
-vector<vec2> originalpoints;	//Original Point Positions (Pre-Warp)
+vector<vec2> originpoints;		//Original Point Positions (Pre-Warp)
 
 vector<ivec4> triangles;	//Triangle Point Indexing
 vector<int> halfedges;	//Triangle Halfedge Indexing
@@ -464,42 +464,6 @@ int maxerrid(){
 
 }
 
-// Point / Triangle Parameterization
-
-// Compute the Parameters of a Point in a Triangle
-
-vec3 barycentric(vec2 p, ivec4 t, vector<vec2>& v){
-
-	mat3 R(
-		1,1,1,
-		v[t.x].x, v[t.y].x, v[t.z].x,
-		v[t.x].y, v[t.y].y, v[t.z].y
-	);
-
-	return inverse(R)*vec3(1, p.x, p.y);
-
-}
-
-// Check if a Point is in a Triangle
-
-bool intriangle( vec2 p, ivec4 t, vector<vec2>& v){
-
-	vec3 s = barycentric(p, t, v);
-	if(s.x <= 0 || s.x >= 1) return false;
-	if(s.y <= 0 || s.y >= 1) return false;
-	if(s.z <= 0 || s.z >= 1) return false;
-	return true;
-
-}
-
-// Map Point in Triangle
-
-vec2 cartesian(vec3 s, ivec4 t, vector<vec2>& v){
-
-	return s.x * v[t.x] + s.y * v[t.y] + s.z * v[t.z];
-
-}
-
 /*
 ================================================================================
 											Topological Optimization Strategy
@@ -567,6 +531,43 @@ bool optimize(){
 ================================================================================
 */
 
+
+// Point / Triangle Parameterization
+
+// Compute the Parameters of a Point in a Triangle
+
+vec3 barycentric(vec2 p, ivec4 t, vector<vec2>& v){
+
+	mat3 R(
+		1, v[t.x].x, v[t.x].y,
+		1, v[t.y].x, v[t.y].y,
+		1, v[t.z].x, v[t.z].y
+	);
+
+	return inverse(R)*vec3(1, p.x, p.y);
+
+}
+
+// Check if a Point is in a Triangle
+
+bool intriangle( vec2 p, ivec4 t, vector<vec2>& v){
+
+	vec3 s = barycentric(p, t, v);
+	if(s.x <= 0 || s.x >= 1) return false;
+	if(s.y <= 0 || s.y >= 1) return false;
+	if(s.z <= 0 || s.z >= 1) return false;
+	return true;
+
+}
+
+// Map Point in Triangle
+
+vec2 cartesian(vec3 s, ivec4 t, vector<vec2>& v){
+
+	return s.x * v[t.x] + s.y * v[t.y] + s.z * v[t.z];
+
+}
+
 // Export a Triangulation
 
 void write( string file ){
@@ -610,6 +611,31 @@ void write( string file ){
 
 // Import a Triangulation
 
+
+
+
+// Load new Points!
+// Check if point is inside
+
+
+//float s = 1/(2*Area)
+
+/*
+	Hierarchical Warping:
+		-> Take Initial Positions,
+		-> Take New Positions,
+
+		Compute a "transformation" that is applied to all points INSIDE the region!
+		When loading a new triangulation, take every point where it is and transform it.
+
+		Note to store the original positions so this can again be used for the transformation.
+
+		That is all.
+
+*/
+
+
+
 void read( string file ){
 
 	cout<<"Importing from file "<<file<<endl;
@@ -619,10 +645,14 @@ void read( string file ){
 		exit(0);
 	}
 
-	points.clear();
-	triangles.clear();
-	originalpoints.clear();
-	halfedges.clear();
+	// temporary storage variables
+
+	vector<vec2> npoints;
+	vector<vec2> noriginpoints;
+	vector<ivec4> ntriangles;
+	vector<int> nhalfedges;
+
+	// sscanf variables
 
 	vec2 p = vec2(0);
 	ivec4 c = ivec4(0);
@@ -642,11 +672,53 @@ void read( string file ){
 
 		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
 		if(m == 2){
-			points.push_back(p);
-			originalpoints.push_back(p);
+			npoints.push_back(p);
+			noriginpoints.push_back(p);
 		}
 
 	}
+
+	// We have loaded all new points:
+	// check for warping!
+
+	if(!triangles.empty()){
+
+		// Iterate over all points
+
+		for(size_t i = 0; i < npoints.size(); i++){
+
+			// Iterate over all current triangles
+
+			for(auto& t: triangles){
+
+				// Check if this point is in the original triangle
+
+				if(!intriangle(npoints[i], t, originpoints))
+					continue;
+
+				// Warp this point to the new location using barycentrics, next point
+				npoints[i] = cartesian(barycentric(npoints[i], t, originpoints), t, points);
+				break;
+
+			}
+
+		}
+
+
+
+
+
+
+
+
+
+
+
+
+
+	}
+
+	// Continue Loading Remaining Data...
 
 	while(!in.eof()){
 
@@ -659,9 +731,9 @@ void read( string file ){
 
 		int m = sscanf(pstring.c_str(), "%u %u %u", &h.x, &h.y, &h.z);
 		if(m == 3){
-			halfedges.push_back(h.x);
-			halfedges.push_back(h.y);
-			halfedges.push_back(h.z);
+			nhalfedges.push_back(h.x);
+			nhalfedges.push_back(h.y);
+			nhalfedges.push_back(h.z);
 		}
 
 	}
@@ -676,12 +748,12 @@ void read( string file ){
 			break;
 
 		int m = sscanf(pstring.c_str(), "%u %u %u", &t.x, &t.y, &t.z);
-		if(m == 3) triangles.push_back(t);
+		if(m == 3) ntriangles.push_back(t);
 
 	}
 
-	NPoints = points.size();
-	KTriangles = triangles.size();
+	NPoints = npoints.size();
+	KTriangles = ntriangles.size();
 	NTriangles = (1+12)*KTriangles;
 
 	int nc = 0;
@@ -700,33 +772,16 @@ void read( string file ){
 
 	}
 
+	points = npoints;
+	originpoints = noriginpoints;
+	triangles = ntriangles;
+	halfedges = nhalfedges;
+
 	pointbuf->fill(points);
 	trianglebuf->fill(triangles);
 	tcolaccbuf->fill(NTriangles, col);
 
 	cout<<"Number of Triangles: "<<KTriangles<<endl;
-
-
-				// Load new Points!
-				// Check if point is inside
-
-
-				//float s = 1/(2*Area)
-
-				/*
-					Hierarchical Warping:
-						-> Take Initial Positions,
-						-> Take New Positions,
-
-						Compute a "transformation" that is applied to all points INSIDE the region!
-						When loading a new triangulation, take every point where it is and transform it.
-
-						Note to store the original positions so this can again be used for the transformation.
-
-						That is all.
-
-				*/
-
 
 	in.close();
 
