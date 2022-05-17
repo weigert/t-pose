@@ -1,113 +1,104 @@
-// triangulate.h
+#ifndef TRIANGULATION
+#define TRIANGULATION
 
 #include <fstream>
-
 #include "include/delaunator-cpp/delaunator-header-only.hpp"
 #include "include/poisson.h"
+#include "utility.h"
+
+namespace tri {
 
 using namespace glm;
 using namespace std;
 
-#define PI 3.14159265f
+float RATIO = 12.0f/8.0f;
+const float PI = 3.14159265f;
 
-struct Triangle : Model {
-	Buffer vert;
-	Triangle():Model({"vert"}),
-	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}){
-		bind<vec3>("vert", &vert);
-		SIZE = 3;
+/*
+================================================================================
+														Triangulation Struct
+================================================================================
+*/
+
+struct triangulation {
+
+	// Main Members
+
+	vector<vec2> points;
+	vector<vec2> originpoints;
+	vector<ivec4> colors;
+	vector<ivec4> triangles;
+	vector<int> halfedges;
+	vector<int> sizes;
+
+	int NP;								// Number of Points
+	int NT;								// Number of Triangles
+	static size_t MAXT;		// Maximum Number of Triangles
+
+	// Initial Conditions
+
+	triangulation( string filename ){
+
+		read(filename);
+
 	}
+
+	triangulation( size_t K = 0 ){
+
+		points.emplace_back(-RATIO,-1);
+		points.emplace_back(-RATIO, 1);
+		points.emplace_back( RATIO,-1);
+		points.emplace_back( RATIO, 1);
+
+		while(points.size() < K/2)
+			sample::disc(points, K, vec2(-RATIO, -1.0f), vec2(RATIO, 1.0f));
+
+		vector<double> coords;					//Coordinates for Delaunation
+	  for(size_t i = 0; i < points.size(); i++){
+	    coords.push_back(points[i].x);
+	    coords.push_back(points[i].y);
+	  }
+
+		delaunator::Delaunator d(coords);			//Compute Delaunay Triangulation
+
+	  for(size_t i = 0; i < d.triangles.size()/3; i++){
+			triangles.emplace_back(d.triangles[3*i+0], d.triangles[3*i+1], d.triangles[3*i+2], 0);
+			halfedges.push_back(d.halfedges[3*i+0]);
+			halfedges.push_back(d.halfedges[3*i+1]);
+			halfedges.push_back(d.halfedges[3*i+2]);
+			colors.emplace_back(0,0,0,1);
+			sizes.push_back(0);
+		}
+
+		NP = points.size();
+		NT = triangles.size();
+		colors.resize(MAXT);
+
+	}
+
+	// Helper Functions
+
+	float angle( int ha );
+	float hlength( int ha );
+	static bool boundary( vec2 p );
+	int boundary( int t );
+
+	// Topological Modifications
+
+	bool prune( int ta );				// Prune Boundary Triangle
+	bool flip( int ha );				// Flip Triangulation Edge
+	bool collapse( int ha );		// Collapse Triangulation Edge
+	bool split( int ta );				// Split Triangle
+	bool optimize();						// Optimization Procedure Wrapper
+
+	// IO Functions
+
+	void read( string file );
+	void write( string file );
+
 };
 
-struct TLineStrip : Model {
-	Buffer vert;
-	TLineStrip():Model({"vert"}),
-	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f}){
-		bind<vec3>("vert", &vert);
-		SIZE = 4;
-	}
-};
-
-
-Buffer* trianglebuf;
-Buffer* pointbuf;
-Buffer* tcolaccbuf;
-Buffer* tcolnumbuf;
-Buffer* tenergybuf;
-Buffer* pgradbuf;
-
-int* err;
-int* cn;
-ivec4* col;
-
-vector<vec2> points;			//Coordinates for Delaunation
-vector<ivec4> triangles;	//Triangle Point Indexing
-vector<int> halfedges;	//Triangle Halfedge Indexing
-
-int NPoints;
-int KTriangles;
-int NTriangles;
-const int MAXTriangles = 128000;
-
-void initbufs(){
-
-	pointbuf = new Buffer(MAXTriangles, (vec2*)NULL);
-	trianglebuf = new Buffer(MAXTriangles, (ivec4*)NULL);
-
-	tcolaccbuf = new Buffer( MAXTriangles, (ivec4*)NULL );		// Raw Color
-	tcolnumbuf = new Buffer( MAXTriangles, (int*)NULL );			// Triangle Size (Pixels)
-	tenergybuf = new Buffer( MAXTriangles, (int*)NULL );			// Triangle Energy
-	pgradbuf = new Buffer( MAXTriangles, (ivec2*)NULL );
-
-	err = new int[MAXTriangles];
-	cn = new int[MAXTriangles];
-	col = new ivec4[MAXTriangles];
-
-}
-
-void initialize( const int K = 0 ){
-
-	initbufs();
-
-  // Create a Delaunator!
-
-	points.emplace_back(-RATIO,-1);
-	points.emplace_back(-RATIO, 1);
-	points.emplace_back( RATIO,-1);
-	points.emplace_back( RATIO, 1);
-
-//	for(float x = -RATIO; x <= RATIO; x += RATIO/6 )
-//	for(float y = -1; y <= 1; y += 1.0f/4 ){
-//		points.emplace_back(x, y);
-//	}
-
-	while(points.size() < K/2)
-		sample::disc(points, K, vec2(-12.0f/8.0f, -1.0f), vec2(12.0f/8.0f, 1.0f));
-
-	vector<double> coords;					//Coordinates for Delaunation
-  for(size_t i = 0; i < points.size(); i++){
-    coords.push_back(points[i].x);
-    coords.push_back(points[i].y);
-  }
-
-	delaunator::Delaunator d(coords);			//Compute Delaunay Triangulation
-
-	pointbuf->fill(points);
-
-  for(size_t i = 0; i < d.triangles.size()/3; i++){
-		triangles.emplace_back(d.triangles[3*i+0], d.triangles[3*i+1], d.triangles[3*i+2], 0);
-		halfedges.push_back(d.halfedges[3*i+0]);
-		halfedges.push_back(d.halfedges[3*i+1]);
-		halfedges.push_back(d.halfedges[3*i+2]);
-	}
-
-	trianglebuf->fill(triangles);
-
-	NPoints = points.size();
-	KTriangles = triangles.size();
-	NTriangles = (1+12)*KTriangles;
-
-}
+size_t triangulation::MAXT = (2 << 18);
 
 /*
 ================================================================================
@@ -117,7 +108,7 @@ void initialize( const int K = 0 ){
 
 // Angle Opposite to Half-Edge
 
-float angle( int ha ){
+float triangulation::angle( int ha ){
 
 	int ta = ha/3;	// Triangle Index
 
@@ -132,7 +123,7 @@ float angle( int ha ){
 
 // Length of Half-Edge
 
-float hlength( int ha ){
+float triangulation::hlength( int ha ){
 
 	int ta = ha/3;	// Triangle Index
 
@@ -144,28 +135,31 @@ float hlength( int ha ){
 
 // Number of Vertices on Boundary (Triangle)
 
-int boundary( int t ){
+bool triangulation::boundary( vec2 p ){
+
+	if(p.x <= -RATIO
+	|| p.y <= -1
+	|| p.x >=  RATIO
+	|| p.y >=  1) return true;
+	return false;
+
+}
+
+int triangulation::boundary( int t ){
 
 	int nboundary = 0;
 
-	if(points[triangles[t].x].x <= -RATIO
-	|| points[triangles[t].x].y <= -1
-	|| points[triangles[t].x].x >=  RATIO
-	|| points[triangles[t].x].y >=  1) nboundary++;
-
-	if(points[triangles[t].y].x <= -RATIO
-	|| points[triangles[t].y].y <= -1
-	|| points[triangles[t].y].x >=  RATIO
-	|| points[triangles[t].y].y >=  1) nboundary++;
-
-	if(points[triangles[t].z].x <= -RATIO
-	|| points[triangles[t].z].y <= -1
-	|| points[triangles[t].z].x >=  RATIO
-	|| points[triangles[t].z].y >=  1) nboundary++;
+	if(triangulation::boundary(points[triangles[t].x]))
+		nboundary++;
+	if(triangulation::boundary(points[triangles[t].y]))
+		nboundary++;
+	if(triangulation::boundary(points[triangles[t].z]))
+		nboundary++;
 
 	return nboundary;
 
 }
+
 
 /*
 ================================================================================
@@ -175,7 +169,7 @@ int boundary( int t ){
 
 // Prune Triangle from Triangulation Boundary
 
-bool prune( int ta ){
+bool triangulation::prune( int ta ){
 
 	// Get Exterior Half-Edges
 
@@ -213,8 +207,7 @@ bool prune( int ta ){
 
 	}
 
-	KTriangles--;
-	NTriangles = (1+12)*KTriangles;
+	NT--;
 
 	cout<<"PRUNED"<<endl;
 	return true;
@@ -223,7 +216,7 @@ bool prune( int ta ){
 
 // Delaunay Flipping
 
-bool flip( int ha ){
+bool triangulation::flip( int ha ){
 
 	int hb = halfedges[ha];		// Opposing Half-Edge
 	int ta = ha/3;						// First Triangle
@@ -290,7 +283,7 @@ bool flip( int ha ){
 
 // Half-Edge Collapse
 
-bool collapse( int ha ){
+bool triangulation::collapse( int ha ){
 
 	int hb = halfedges[ha];		// Opposing Half-Edge
 	int ta = ha/3;						// First Triangle
@@ -398,9 +391,8 @@ bool collapse( int ha ){
 
 	}
 
-	KTriangles -= 2;
-	NTriangles = (1+12)*KTriangles;
-	NPoints--;
+	NT -= 2;
+	NP -= 1;
 
 	cout<<"COLLAPSED"<<endl;
 	return true;
@@ -409,7 +401,7 @@ bool collapse( int ha ){
 
 // Triangle Centroid Splitting
 
-bool split( int ta ){
+bool triangulation::split( int ta ){
 
 	ivec4 tca = triangles[ta];	//Triangle Vertices
 
@@ -456,56 +448,11 @@ bool split( int ta ){
 
 	// Update Numbers
 
-	KTriangles += 2;
-	NTriangles = (1+12)*KTriangles;
-	NPoints++;
+	NT += 2;
+	NP += 1;
 
 	cout<<"SPLIT"<<endl;
 	return true;
-
-}
-
-// Error Computations
-
-
-float toterr = 1.0f;
-float newerr;
-float relerr;
-float maxerr;
-
-float geterr(){
-
-	maxerr = 0.0f;
-	newerr = 0.0f;
-
-	for(size_t i = 0; i < KTriangles; i++){
-	//	if(cn[i] == 0) continue;
-		newerr += err[i];
-		if(sqrt(err[i]) >= maxerr)
-			maxerr = sqrt(err[i]);
-	}
-
-	relerr = (toterr - newerr)/toterr;
-	toterr = newerr;
-
-	return abs(relerr);
-
-}
-
-int maxerrid(){
-
-	maxerr = 0;
-	int tta = -1;
-	for(size_t i = 0; i < KTriangles; i++){
-		if(cn[i] == 0) continue;
-		if(cn[i] <= 50) continue;
-		if(sqrt(err[i]) > maxerr){
-			maxerr = sqrt(err[i]);
-			tta = i;
-		}
-	}
-
-	return tta;
 
 }
 
@@ -523,20 +470,19 @@ int maxerrid(){
 
 */
 
-
-bool optimize(){
+bool triangulation::optimize(){
 
 	// cout<<"OPTIMIZE"<<endl;
 
 	// Prune Flat Boundary Triangles
 
-	for(size_t ta = 0; ta < KTriangles; ta++)
+	for(size_t ta = 0; ta < NT; ta++)
 	if(boundary(ta) == 3)
 		prune(ta);
 
 	// Attempt a Delaunay Flip on a Triangle's Largest Angle
 
-	for(size_t ta = 0; ta < KTriangles; ta++){
+	for(size_t ta = 0; ta < NT; ta++){
 
 		int ha = 3*ta + 0;
 		float maxangle = angle( ha );
@@ -578,7 +524,7 @@ bool optimize(){
 
 // Export a Triangulation
 
-void write( string file ){
+void triangulation::write( string file ){
 
 	cout<<"Exporting to file "<<file<<endl;
 	ofstream out(file, ios::out);
@@ -607,11 +553,9 @@ void write( string file ){
 
 	// Export Colors
 
-	tcolaccbuf->retrieve(KTriangles, col);
-
 	out<<"COLOR"<<endl;
-	for(size_t i = 0; i < triangles.size(); i++)
-		out<<col[i].x<<" "<<col[i].y<<" "<<col[i].z<<endl;
+	for(size_t i = 0; i < NT; i++)
+		out<<colors[i].x<<" "<<colors[i].y<<" "<<colors[i].z<<endl;
 
 	out.close();
 
@@ -619,7 +563,7 @@ void write( string file ){
 
 // Import a Triangulation
 
-void read( string file ){
+void triangulation::read( string file ){
 
 	cout<<"Importing from file "<<file<<endl;
 	ifstream in(file, ios::in);
@@ -628,16 +572,15 @@ void read( string file ){
 		exit(0);
 	}
 
-	points.clear();
-	triangles.clear();
+	string pstring;
 
 	vec2 p = vec2(0);
 	ivec4 c = ivec4(0);
 	ivec4 t = ivec4(0);
 	ivec3 h = ivec3(0);
 
-	string pstring;
-
+	vector<vec2> npoints;
+	vector<vec2> noriginpoints;
 	while(!in.eof()){
 
 		getline(in, pstring);
@@ -648,10 +591,38 @@ void read( string file ){
 			break;
 
 		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
-		if(m == 2) points.push_back(p);
+		if(m == 2){
+			npoints.push_back(p);
+			noriginpoints.push_back(p);
+		}
 
 	}
 
+	// Check for Warping
+
+	if(!triangles.empty())
+	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
+
+		if(boundary(npoints[i]))
+			continue;
+
+		for(auto& t: triangles){
+
+			if(!intriangle(npoints[i], t, originpoints))
+				continue;
+
+			npoints[i] = cartesian(barycentric(npoints[i], t, originpoints), t, points);
+			break;
+
+		}
+
+	}
+
+	points = npoints;
+	originpoints = noriginpoints;
+	NP = points.size();
+
+	halfedges.clear();
 	while(!in.eof()){
 
 		getline(in, pstring);
@@ -670,6 +641,7 @@ void read( string file ){
 
 	}
 
+	triangles.clear();
 	while(!in.eof()){
 
 		getline(in, pstring);
@@ -684,11 +656,9 @@ void read( string file ){
 
 	}
 
-	NPoints = points.size();
-	KTriangles = triangles.size();
-	NTriangles = (1+12)*KTriangles;
+	NT = triangles.size();
 
-	int nc = 0;
+	colors.clear();
 	while(!in.eof()){
 
 		getline(in, pstring);
@@ -696,18 +666,145 @@ void read( string file ){
 			break;
 
 		int m = sscanf(pstring.c_str(), "%u %u %u", &c.x, &c.y, &c.z);
-		if(m == 3){
-			for(size_t i = 0; i < 13; i++)
-				col[i*KTriangles + nc] = c;
-			nc++;
-		}
+		if(m == 3) colors.push_back(ivec4(c.x, c.y, c.z, 1));
 
 	}
-
-	pointbuf->fill(points);
-	trianglebuf->fill(triangles);
-	tcolaccbuf->fill(NTriangles, col);
 
 	in.close();
 
 }
+
+// Rendering GPU Buffers
+
+Buffer* trianglebuf;
+Buffer* pointbuf;
+Buffer* tcolaccbuf;
+Buffer* tcolnumbuf;
+Buffer* tenergybuf;
+Buffer* pgradbuf;
+Buffer* tnringbuf;
+
+int* err;
+int* cn;
+glm::ivec4* col;
+
+void init(){
+
+	pointbuf 		= new Buffer( tri::triangulation::MAXT, (glm::vec2*)NULL );
+	trianglebuf = new Buffer( tri::triangulation::MAXT, (glm::ivec4*)NULL );
+	tcolaccbuf 	= new Buffer( tri::triangulation::MAXT, (glm::ivec4*)NULL );		// Raw Color
+	tcolnumbuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Triangle Size (Pixels)
+	tenergybuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Triangle Energy
+	pgradbuf 		= new Buffer( tri::triangulation::MAXT, (glm::ivec2*)NULL );
+	tnringbuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );
+
+	err = new int[tri::triangulation::MAXT];
+	cn 	= new int[tri::triangulation::MAXT];
+	col = new glm::ivec4[tri::triangulation::MAXT];
+
+}
+
+void quit(){
+
+	delete[] err;
+	delete[] cn;
+
+	delete trianglebuf;
+	delete pointbuf;
+	delete tcolaccbuf;
+	delete tcolnumbuf;
+	delete tenergybuf;
+	delete pgradbuf;
+
+}
+
+void upload( tri::triangulation* tr, bool uploadcolor = true ){
+
+	pointbuf->fill(tr->points);
+	trianglebuf->fill(tr->triangles);
+
+	if(uploadcolor){
+		int nc = 0;
+		for(auto& c: tr->colors){
+			for(size_t i = 0; i < 13; i++)
+				col[i*tr->NT + nc] = c;
+			nc++;
+		}
+		tcolaccbuf->fill(13*tr->NT, col);
+	}
+
+}
+
+// Error Computations
+
+
+float toterr = 1.0f;
+float newerr;
+float relerr;
+float maxerr;
+
+float geterr( tri::triangulation* tr ){
+
+	maxerr = 0.0f;
+	newerr = 0.0f;
+
+	for(size_t i = 0; i < tr->NT; i++){
+	//	if(cn[i] == 0) continue;
+		newerr += err[i];
+		if(sqrt(err[i]) >= maxerr)
+			maxerr = sqrt(err[i]);
+	}
+
+	relerr = (toterr - newerr)/toterr;
+	toterr = newerr;
+
+	return abs(relerr);
+
+}
+
+int maxerrid( tri::triangulation* tr ){
+
+	maxerr = 0;
+	int tta = -1;
+	for(size_t i = 0; i < tr->NT; i++){
+		if(cn[i] == 0) continue;
+		if(cn[i] <= 50) continue;
+		if(sqrt(err[i]) > maxerr){
+			maxerr = sqrt(err[i]);
+			tta = i;
+		}
+	}
+
+	return tta;
+
+}
+
+} //End of Namespace
+
+/*
+================================================================================
+												TinyEngine Rendering Interface
+================================================================================
+*/
+
+// Rendering Structures
+
+struct Triangle : Model {
+	Buffer vert;
+	Triangle():Model({"vert"}),
+	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}){
+		bind<glm::vec3>("vert", &vert);
+		SIZE = 3;
+	}
+};
+
+struct TLineStrip : Model {
+	Buffer vert;
+	TLineStrip():Model({"vert"}),
+	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f}){
+		bind<glm::vec3>("vert", &vert);
+		SIZE = 4;
+	}
+};
+
+#endif

@@ -49,7 +49,7 @@ int main( int argc, char* args[] ) {
 	initbufs();
 	read("out.tri");
 	otherpoints = points;
-	read("500.tri");
+	read("1000.tri");
 
 	Buffer otherpointbuf(otherpoints);
 

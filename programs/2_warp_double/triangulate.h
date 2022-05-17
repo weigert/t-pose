@@ -1,0 +1,794 @@
+// triangulate.h
+
+#include <fstream>
+
+using namespace glm;
+using namespace std;
+
+#define PI 3.14159265f
+
+struct Triangle : Model {
+	Buffer vert;
+	Triangle():Model({"vert"}),
+	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}){
+		bind<vec3>("vert", &vert);
+		SIZE = 3;
+	}
+};
+
+struct TLineStrip : Model {
+	Buffer vert;
+	TLineStrip():Model({"vert"}),
+	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f}){
+		bind<vec3>("vert", &vert);
+		SIZE = 4;
+	}
+};
+
+
+Buffer* trianglebuf;
+Buffer* pointbuf;
+Buffer* tcolaccbuf;
+Buffer* tcolnumbuf;
+Buffer* tenergybuf;
+Buffer* pgradbuf;
+
+int* err;
+int* cn;
+ivec4* col;
+
+vector<vec2> points;					//Coordinates for Delaunation
+vector<vec2> originpoints;		//Original Point Positions (Pre-Warp)
+
+vector<ivec4> triangles;	//Triangle Point Indexing
+vector<int> halfedges;	//Triangle Halfedge Indexing
+
+int NPoints;
+int KTriangles;
+int NTriangles;
+const int MAXTriangles = (2 << 18);
+
+void initbufs(){
+
+	pointbuf = new Buffer(MAXTriangles, (vec2*)NULL);
+	trianglebuf = new Buffer(MAXTriangles, (ivec4*)NULL);
+
+	tcolaccbuf = new Buffer( MAXTriangles, (ivec4*)NULL );		// Raw Color
+	tcolnumbuf = new Buffer( MAXTriangles, (int*)NULL );			// Triangle Size (Pixels)
+	tenergybuf = new Buffer( MAXTriangles, (int*)NULL );			// Triangle Energy
+	pgradbuf = new Buffer( MAXTriangles, (ivec2*)NULL );
+
+	err = new int[MAXTriangles];
+	cn = new int[MAXTriangles];
+	col = new ivec4[MAXTriangles];
+
+}
+
+/*
+================================================================================
+											Triangulation Helper Functions
+================================================================================
+*/
+
+// Angle Opposite to Half-Edge
+
+float angle( int ha ){
+
+	int ta = ha/3;	// Triangle Index
+
+	vec2 paa = points[triangles[ta][(ha+0)%3]];
+	vec2 pab = points[triangles[ta][(ha+1)%3]];
+	vec2 pac = points[triangles[ta][(ha+2)%3]];
+	if(length(paa - pac) == 0) return 0;
+	if(length(pab - pac) == 0) return 0;
+	return acos(dot(paa - pac, pab - pac) / length(paa - pac) / length(pab - pac));
+
+}
+
+// Length of Half-Edge
+
+float hlength( int ha ){
+
+	int ta = ha/3;	// Triangle Index
+
+	vec2 paa = points[triangles[ta][(ha+0)%3]];
+	vec2 pab = points[triangles[ta][(ha+1)%3]];
+	return length(pab - paa);
+
+}
+
+// Number of Vertices on Boundary (Triangle)
+
+static bool boundary( vec2 p ){
+
+	if(p.x <= -RATIO
+	|| p.y <= -1
+	|| p.x >=  RATIO
+	|| p.y >=  1) return true;
+	return false;
+
+}
+
+int boundary( int t ){
+
+	int nboundary = 0;
+
+	if(boundary(points[triangles[t].x]))
+		nboundary++;
+	if(boundary(points[triangles[t].y]))
+		nboundary++;
+	if(boundary(points[triangles[t].z]))
+		nboundary++;
+
+	return nboundary;
+
+}
+
+/*
+================================================================================
+									Triangulation Topological Alterations
+================================================================================
+*/
+
+// Prune Triangle from Triangulation Boundary
+
+bool prune( int ta ){
+
+	// Get Exterior Half-Edges
+
+	int ta0 = halfedges[3*ta+0];
+	int ta1 = halfedges[3*ta+1];
+	int ta2 = halfedges[3*ta+2];
+
+	// Check Non-Prunable
+
+	if(ta0 >= 0 && ta1 >= 0 && ta2 >= 0)
+		return false;
+
+	if(angle(3*ta+0) > 0 && angle(3*ta+0) < PI) return false;
+	if(angle(3*ta+1) > 0 && angle(3*ta+1) < PI) return false;
+	if(angle(3*ta+2) > 0 && angle(3*ta+2) < PI) return false;
+
+	// Remove References
+
+	if(ta0 >= 0) halfedges[ta0] = -1;
+	if(ta1 >= 0) halfedges[ta1] = -1;
+	if(ta2 >= 0) halfedges[ta2] = -1;
+
+	// Delete the Triangle
+	// Note that we don't actually delete any vertices!
+
+	triangles.erase(triangles.begin() + ta);
+	halfedges.erase(halfedges.begin() + 3*ta, halfedges.begin() + 3*(ta + 1));
+
+	// Fix the Indexing!
+
+	for(auto& h: halfedges){
+
+		int th = h;
+		if(th >= 3*(ta+1)) h -= 3;
+
+	}
+
+	KTriangles--;
+	NTriangles = (1+12)*KTriangles;
+
+	cout<<"PRUNED"<<endl;
+	return true;
+
+}
+
+// Delaunay Flipping
+
+bool flip( int ha ){
+
+	int hb = halfedges[ha];		// Opposing Half-Edge
+	int ta = ha/3;						// First Triangle
+	int tb = hb/3;						// Second Triangle
+
+	if(hb < 0)	return false;	// No Opposing Half-Edge
+
+	float aa = angle(ha);
+	float ab = angle(hb);
+
+	if(aa + ab <= PI)
+		return false;
+
+	if(aa <= 1E-8 || ab <= 1E-8)
+		return false;
+
+	// Retrieve Half-Edge Indices
+
+	int ta0 = halfedges[3*ta+(ha+0)%3];
+	int ta1 = halfedges[3*ta+(ha+1)%3];
+	int ta2 = halfedges[3*ta+(ha+2)%3];
+
+	int tb0 = halfedges[3*tb+(hb+0)%3];
+	int tb1 = halfedges[3*tb+(hb+1)%3];
+	int tb2 = halfedges[3*tb+(hb+2)%3];
+
+	// Retrieve Triangle Vertex Indices
+
+	ivec4 tca = triangles[ta];
+	ivec4 tcb = triangles[tb];
+
+	// Interior Half-Edge Reference Shift
+
+	halfedges[3*ta+(ha+0)%3] = ta0;
+	halfedges[3*ta+(ha+1)%3] = ta2;
+	halfedges[3*ta+(ha+2)%3] = tb1;
+
+	halfedges[3*tb+(hb+0)%3] = tb0;
+	halfedges[3*tb+(hb+1)%3] = tb2;
+	halfedges[3*tb+(hb+2)%3] = ta1;
+
+	// Exterior Half-Edge Reference Shift
+
+	if(ta1 >= 0) halfedges[ta1] = 3*tb+(hb+2)%3;
+	if(ta2 >= 0) halfedges[ta2] = 3*ta+(ha+1)%3;
+
+	if(tb1 >= 0) halfedges[tb1] = 3*ta+(ha+2)%3;
+	if(tb2 >= 0) halfedges[tb2] = 3*tb+(hb+1)%3;
+
+	// Vertex Shift
+
+	triangles[ta][(ha+0)%3] = tcb[(hb+2)%3];
+	triangles[ta][(ha+1)%3] = tca[(ha+2)%3];
+	triangles[ta][(ha+2)%3] = tcb[(hb+1)%3];
+
+	triangles[tb][(hb+0)%3] = tca[(ha+2)%3];
+	triangles[tb][(hb+1)%3] = tcb[(hb+2)%3];
+	triangles[tb][(hb+2)%3] = tca[(ha+1)%3];
+
+	cout<<"FLIPPED"<<endl;
+	return true;
+
+}
+
+// Half-Edge Collapse
+
+bool collapse( int ha ){
+
+	int hb = halfedges[ha];		// Opposing Half-Edge
+	int ta = ha/3;						// First Triangle
+	int tb = hb/3;						// Second Triangle
+
+	if(hb < 0)	return false; // No Opposing Half-Edge
+
+	if(boundary(ta) > 0 			// No Boundary Collapsing
+	|| boundary(tb) > 0)
+		return false;
+
+	int ia = triangles[ta][(ha+0)%3];
+	int ib = triangles[tb][(hb+0)%3];
+
+	if(length(points[ia] - points[ib]) > 0.01)
+		return false;
+
+	// Add new Point
+
+	vec2 vn = 0.5f*(points[ia] + points[ib]);
+	int in = points.size();
+	points.push_back(vn);
+
+	// Adjust all Assignments to the Vertices
+
+	for(auto& t: triangles){
+
+		if(t.x == ia || t.x == ib) t.x = in;
+		if(t.y == ia || t.y == ib) t.y = in;
+		if(t.z == ia || t.z == ib) t.z = in;
+
+	}
+
+	// Retrieve Exterior Half-Edge Indices
+
+	int ta1 = halfedges[3*ta+(ha+1)%3];
+	int ta2 = halfedges[3*ta+(ha+2)%3];
+
+	int tb1 = halfedges[3*tb+(hb+1)%3];
+	int tb2 = halfedges[3*tb+(hb+2)%3];
+
+	// Adjust Exterior Half-Edges
+
+	if(ta1 >= 0) halfedges[ta1] = ta2;
+	if(ta2 >= 0) halfedges[ta2] = ta1;
+
+	if(tb1 >= 0) halfedges[tb1] = tb2;
+	if(tb2 >= 0) halfedges[tb2] = tb1;
+
+	// Erase the Points, Halfedges, Triangles
+
+	if(ta > tb){
+
+		triangles.erase(triangles.begin() + ta);
+		triangles.erase(triangles.begin() + tb);
+
+		halfedges.erase(halfedges.begin() + 3*ta, halfedges.begin() + 3*(ta + 1));
+		halfedges.erase(halfedges.begin() + 3*tb, halfedges.begin() + 3*(tb + 1));
+
+	}
+
+	else {
+
+		triangles.erase(triangles.begin() + tb);
+		triangles.erase(triangles.begin() + ta);
+
+		halfedges.erase(halfedges.begin() + 3*tb, halfedges.begin() + 3*(tb + 1));
+		halfedges.erase(halfedges.begin() + 3*ta, halfedges.begin() + 3*(ta + 1));
+
+	}
+
+	if(ia > ib){
+
+		points.erase(points.begin()+ia);
+		points.erase(points.begin()+ib);
+
+	}
+
+	else {
+
+		points.erase(points.begin()+ib);
+		points.erase(points.begin()+ia);
+
+	}
+
+	// Fix the Indexing!
+
+	for(auto& t: triangles){
+
+		ivec4 tt = t;
+		if(tt.x >= ia) t.x--;
+		if(tt.y >= ia) t.y--;
+		if(tt.z >= ia) t.z--;
+		if(tt.x >= ib) t.x--;
+		if(tt.y >= ib) t.y--;
+		if(tt.z >= ib) t.z--;
+
+	}
+
+	for(auto& h: halfedges){
+
+		int th = h;
+		if(th >= 3*(ta+1)) h -= 3;
+		if(th >= 3*(tb+1)) h -= 3;
+
+	}
+
+	KTriangles -= 2;
+	NTriangles = (1+12)*KTriangles;
+	NPoints--;
+
+	cout<<"COLLAPSED"<<endl;
+	return true;
+
+}
+
+// Triangle Centroid Splitting
+
+bool split( int ta ){
+
+	ivec4 tca = triangles[ta];	//Triangle Vertices
+
+	// Compute Centroid, Add Centroid to Triangulation
+
+	vec2 centroid = (points[tca.x] + points[tca.y] + points[tca.z])/3.0f;
+	int nind = points.size();
+	points.push_back(centroid);
+
+	// Original Exterior Half-Edges
+
+	int tax = halfedges[3*ta + 0];
+	int tay = halfedges[3*ta + 1];
+	int taz = halfedges[3*ta + 2];
+
+	// New Triangle Indices, Add new Triangles, Adjust Original
+
+	int tb = triangles.size();
+	int tc = tb + 1;
+
+	triangles.push_back(ivec4(tca.y, tca.z, nind, 0));
+	triangles.push_back(ivec4(tca.z, tca.x, nind, 0));
+	triangles[ta].z = nind;
+
+	// Interior Half-Edge Reference Shift
+
+	halfedges[3*ta + 0] = tax;
+	halfedges[3*ta + 1] = 3*tb + 2;
+	halfedges[3*ta + 2] = 3*tc + 1;
+
+	halfedges.push_back(tay);
+	halfedges.push_back(3*tc + 2);
+	halfedges.push_back(3*ta + 1);
+
+	halfedges.push_back(taz);
+	halfedges.push_back(3*ta + 2);
+	halfedges.push_back(3*tb + 1);
+
+	// Exterior Half-Edge Reference Shift
+
+	if(tax >= 0)	halfedges[tax] = 3*ta + 0;
+	if(tay >= 0)	halfedges[tay] = 3*tb + 0;
+	if(taz >= 0)	halfedges[taz] = 3*tc + 0;
+
+	// Update Numbers
+
+	KTriangles += 2;
+	NTriangles = (1+12)*KTriangles;
+	NPoints++;
+
+	cout<<"SPLIT"<<endl;
+	return true;
+
+}
+
+// Error Computations
+
+
+float toterr = 1.0f;
+float newerr;
+float relerr;
+float maxerr;
+
+float geterr(){
+
+	maxerr = 0.0f;
+	newerr = 0.0f;
+
+	for(size_t i = 0; i < KTriangles; i++){
+	//	if(cn[i] == 0) continue;
+		newerr += err[i];
+		if(sqrt(err[i]) >= maxerr)
+			maxerr = sqrt(err[i]);
+	}
+
+	relerr = (toterr - newerr)/toterr;
+	toterr = newerr;
+
+	return abs(relerr);
+
+}
+
+int maxerrid(){
+
+	maxerr = 0;
+	int tta = -1;
+	for(size_t i = 0; i < KTriangles; i++){
+		if(cn[i] == 0) continue;
+		if(cn[i] <= 100) continue;
+		if(sqrt(err[i]) >= maxerr){
+			maxerr = sqrt(err[i]);
+			tta = i;
+		}
+	}
+
+	return tta;
+
+}
+
+/*
+================================================================================
+											Topological Optimization Strategy
+================================================================================
+
+	Idea for an Optimization Strategy:
+		- Wait till the energy stops sinking
+		- Merge Faces which are too close
+		- Flip until we can't anymore
+		- Compute the energy and split expensive faces
+		- Repeat
+
+*/
+
+
+bool optimize(){
+
+	// cout<<"OPTIMIZE"<<endl;
+
+	// Prune Flat Boundary Triangles
+
+	for(size_t ta = 0; ta < KTriangles; ta++)
+	if(boundary(ta) == 3)
+		prune(ta);
+
+	// Attempt a Delaunay Flip on a Triangle's Largest Angle
+
+	for(size_t ta = 0; ta < KTriangles; ta++){
+
+		int ha = 3*ta + 0;
+		float maxangle = angle( ha );
+		if(angle( ha + 1 ) > maxangle)
+			maxangle = angle( ++ha );
+		if(angle( ha + 1 ) > maxangle)
+			maxangle = angle( ++ha );
+		flip(ha);
+
+	}
+
+	/*
+
+	// Collapse Small Edges
+
+	for(size_t ta = 0; ta < triangles.size(); ta++){
+
+		int ha = 3*ta + 0;
+		float minlength = hlength( ha );
+		if(hlength( ha + 1 ) < minlength)
+			minlength = hlength( ++ha );
+		if(hlength( ha + 1 ) < minlength)
+			minlength = hlength( ++ha );
+		collapse(ha);
+
+	}
+
+	*/
+
+	return true;
+
+}
+
+/*
+================================================================================
+														Triangulation IO
+================================================================================
+*/
+
+
+// Point / Triangle Parameterization
+
+// Compute the Parameters of a Point in a Triangle
+
+vec3 barycentric(vec2 p, ivec4 t, vector<vec2>& v){
+
+	mat3 R(
+		1, v[t.x].x, v[t.x].y,
+		1, v[t.y].x, v[t.y].y,
+		1, v[t.z].x, v[t.z].y
+	);
+
+	if(abs(determinant(R)) < 1E-8) return vec3(1,1,1);
+	return inverse(R)*vec3(1, p.x, p.y);
+
+}
+
+// Check if a Point is in a Triangle
+
+bool intriangle( vec2 p, ivec4 t, vector<vec2>& v){
+
+	if(length(v[t.x] - v[t.y]) == 0) return false;
+	if(length(v[t.y] - v[t.z]) == 0) return false;
+	if(length(v[t.z] - v[t.x]) == 0) return false;
+
+	vec3 s = barycentric(p, t, v);
+	if(s.x < 0 || s.x > 1) return false;
+	if(s.y < 0 || s.y > 1) return false;
+	if(s.z < 0 || s.z > 1) return false;
+	return true;
+
+}
+
+// Map Point in Triangle
+
+vec2 cartesian(vec3 s, ivec4 t, vector<vec2>& v){
+
+	return s.x * v[t.x] + s.y * v[t.y] + s.z * v[t.z];
+
+}
+
+// Export a Triangulation
+
+void write( string file ){
+
+	cout<<"Exporting to file "<<file<<endl;
+	ofstream out(file, ios::out);
+	if(!out.is_open()){
+		cout<<"Failed to open file "<<file<<endl;
+		exit(0);
+	}
+
+	// Export Vertices
+
+	out<<"VERTEX"<<endl;
+	for(auto& p: points)
+		out<<p.x<<" "<<p.y<<endl;
+
+	// Export Halfedges
+
+	out<<"HALFEDGE"<<endl;
+	for(size_t i = 0; i < halfedges.size()/3; i++)
+		out<<halfedges[3*i+0]<<" "<<halfedges[3*i+1]<<" "<<halfedges[3*i+2]<<endl;
+
+	// Export Triangles
+
+	out<<"TRIANGLE"<<endl;
+	for(auto& t: triangles)
+		out<<t.x<<" "<<t.y<<" "<<t.z<<endl;
+
+	// Export Colors
+
+	tcolaccbuf->retrieve(KTriangles, col);
+
+	out<<"COLOR"<<endl;
+	for(size_t i = 0; i < triangles.size(); i++)
+		out<<col[i].x<<" "<<col[i].y<<" "<<col[i].z<<endl;
+
+	out.close();
+
+}
+
+// Import a Triangulation
+
+
+
+
+// Load new Points!
+// Check if point is inside
+
+
+//float s = 1/(2*Area)
+
+/*
+	Hierarchical Warping:
+		-> Take Initial Positions,
+		-> Take New Positions,
+
+		Compute a "transformation" that is applied to all points INSIDE the region!
+		When loading a new triangulation, take every point where it is and transform it.
+
+		Note to store the original positions so this can again be used for the transformation.
+
+		That is all.
+
+*/
+
+
+
+void read( string file ){
+
+	cout<<"Importing from file "<<file<<endl;
+	ifstream in(file, ios::in);
+	if(!in.is_open()){
+		cout<<"Failed to open file "<<file<<endl;
+		exit(0);
+	}
+
+	// temporary storage variables
+
+	vector<vec2> npoints;
+	vector<vec2> noriginpoints;
+	vector<ivec4> ntriangles;
+	vector<int> nhalfedges;
+
+	// sscanf variables
+
+	vec2 p = vec2(0);
+	ivec4 c = ivec4(0);
+	ivec4 t = ivec4(0);
+	ivec3 h = ivec3(0);
+
+	string pstring;
+
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "HALFEDGE")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
+		if(m == 2){
+			npoints.push_back(p);
+			noriginpoints.push_back(p);
+		}
+
+	}
+
+	// We have loaded all new points:
+	// check for warping!
+
+	cout<<"Warping"<<endl;
+	if(!triangles.empty()){
+
+		// Iterate over all points
+
+		for(size_t i = 0; i < npoints.size(); i++){
+
+			if(boundary(npoints[i]))
+				continue;
+
+			// Iterate over all current triangles
+
+			for(auto& t: triangles){
+
+				// Check if this point is in the original triangle
+
+				if(!intriangle(npoints[i], t, originpoints))
+					continue;
+
+				// Warp this point to the new location using barycentrics, next point
+
+				vec3 bc = barycentric(npoints[i], t, originpoints);
+				cout<<"BARYCENTRIC "<<bc.x<<" "<<bc.y<<" "<<bc.z<<endl;
+				cout<<"POINTS "<<npoints[i].x<<" "<<npoints[i].y<<" "<<endl;
+				cout<<"TRIANGLE X"<<points[t.x].x<<" "<<points[t.x].y<<" "<<endl;
+				cout<<"TRIANGLE Y"<<points[t.y].x<<" "<<points[t.y].y<<" "<<endl;
+				cout<<"TRIANGLE Z"<<points[t.z].x<<" "<<points[t.z].y<<" "<<endl;
+				npoints[i] = cartesian(bc, t, points);
+				break;
+
+			}
+
+		}
+
+	}
+
+	// Continue Loading Remaining Data...
+
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "TRIANGLE")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &h.x, &h.y, &h.z);
+		if(m == 3){
+			nhalfedges.push_back(h.x);
+			nhalfedges.push_back(h.y);
+			nhalfedges.push_back(h.z);
+		}
+
+	}
+
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "COLOR")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &t.x, &t.y, &t.z);
+		if(m == 3) ntriangles.push_back(t);
+
+	}
+
+	NPoints = npoints.size();
+	KTriangles = ntriangles.size();
+	NTriangles = (1+12)*KTriangles;
+
+	int nc = 0;
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &c.x, &c.y, &c.z);
+		if(m == 3){
+			for(size_t i = 0; i < 13; i++)
+				col[i*KTriangles + nc] = c;
+			nc++;
+		}
+
+	}
+
+	points = npoints;
+	originpoints = noriginpoints;
+	triangles = ntriangles;
+	halfedges = nhalfedges;
+
+	pointbuf->fill(points);
+	trianglebuf->fill(triangles);
+	tcolaccbuf->fill(NTriangles, col);
+
+	cout<<"Number of Triangles: "<<KTriangles<<endl;
+
+	in.close();
+
+}

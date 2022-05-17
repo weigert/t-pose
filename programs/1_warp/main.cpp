@@ -2,19 +2,19 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-//const float RATIO = 6.0f/9.0f;
-float RATIO = 12.0f/6.75f;
+#include "../../source/triangulate.h"
 
-#include "triangulate.h"
+using namespace std;
+using namespace glm;
 
 int main( int argc, char* args[] ) {
 
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
-//	Tiny::benchmark = true;
 
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
+	tri::RATIO = 9.6/5.4;
 
 	bool paused = true;
 	bool donext = false;
@@ -34,11 +34,11 @@ int main( int argc, char* args[] ) {
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
-	//	1000,
-	//	900,
-	//	800,
-	//	700,
-	//	600,
+		1000,
+		900,
+		800,
+		700,
+		600,
 		500,
 		400,
 		300,
@@ -53,72 +53,77 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initbufs();
-	read(to_string(importlist.back())+".tri");
-	importlist.pop_back();
+	// Shaders and Buffers
 
-	Triangle triangle;
-	Instance triangleinstance(&triangle);
-	triangleinstance.SIZE = KTriangles;
+	tri::init();
 
-	TLineStrip tlinestrip;
-	Instance linestripinstance(&tlinestrip);
-	linestripinstance.SIZE = KTriangles;
-
-	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "energy"});
-	triangleshader.bind<vec2>("points", pointbuf);
-	triangleshader.bind<ivec4>("index", trianglebuf);
+	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "energy", "gradient", "nring"});
+	triangleshader.bind<vec2>("points", tri::pointbuf);
+	triangleshader.bind<ivec4>("index", tri::trianglebuf);
+	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
+	triangleshader.bind<int>("colnum", tri::tcolnumbuf);
+	triangleshader.bind<int>("energy", tri::tenergybuf);
+	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
+	triangleshader.bind<int>("nring", tri::tnringbuf);
 
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
-	linestrip.bind<vec2>("points", pointbuf);
-	linestrip.bind<ivec4>("index", trianglebuf);
-
-	Model pointmesh({"in_Position"});
-	pointmesh.bind<vec2>("in_Position", pointbuf);
-	pointmesh.SIZE = NPoints;
-
-	// Color Accumulation Buffers
-
-	triangleshader.bind<ivec4>("colacc", tcolaccbuf);
-	triangleshader.bind<int>("colnum", tcolnumbuf);
-	triangleshader.bind<int>("energy", tenergybuf);
+	linestrip.bind<vec2>("points", tri::pointbuf);
+	linestrip.bind<ivec4>("index", tri::trianglebuf);
 
 	// SSBO Manipulation Compute Shaders (Reset / Average)
 
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "energy", "gradient"});
-	reset.bind<ivec4>("colacc", tcolaccbuf);
-	reset.bind<int>("colnum", tcolnumbuf);
-	reset.bind<int>("energy", tenergybuf);
-	reset.bind<ivec2>("gradient", pgradbuf);
+	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "energy", "gradient", "nring"});
+	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
+	reset.bind<int>("colnum", tri::tcolnumbuf);
+	reset.bind<int>("energy", tri::tenergybuf);
+	reset.bind<ivec2>("gradient", tri::pgradbuf);
+	reset.bind<int>("nring", tri::tnringbuf);
 
 	Compute gradient({"shader/gradient.cs"}, {"index", "energy", "gradient"});
-	gradient.bind<ivec4>("index", trianglebuf);
-	gradient.bind<int>("energy", tenergybuf);
-	gradient.bind<ivec2>("gradient", pgradbuf);
+	gradient.bind<ivec4>("index", tri::trianglebuf);
+	gradient.bind<int>("energy", tri::tenergybuf);
+	gradient.bind<ivec2>("gradient", tri::pgradbuf);
 
 	Compute shift({"shader/shift.cs"}, {"points", "gradient"});
-	shift.bind<ivec4>("points", pointbuf);
-	shift.bind<ivec2>("gradient", pgradbuf);
+	shift.bind<ivec4>("points", tri::pointbuf);
+	shift.bind<ivec2>("gradient", tri::pgradbuf);
+
+	// Triangulation and Models
+
+	tri::triangulation tr(to_string(importlist.back())+".tri");
+	tri::upload(&tr);
+	importlist.pop_back();
+
+	cout<<"Number of Triangles: "<<tr.NT<<endl;
+
+	Triangle triangle;
+	Instance triangleinstance(&triangle);
+
+	TLineStrip tlinestrip;
+	Instance linestripinstance(&tlinestrip);
+
+	Model pointmesh({"in_Position"});
+	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
 
 	// Convenience Lambdas
 
 	auto doreset = [&](){
 
 		reset.use();
-		reset.uniform("NTriangles", NTriangles);
-		reset.uniform("NPoints", NPoints);
+		reset.uniform("NTriangles", 13*tr.NT);
+		reset.uniform("NPoints", tr.NP);
 
-		if(NTriangles > NPoints) reset.dispatch(1 + NTriangles/1024);
-		else reset.dispatch(1 + NPoints/1024);
+		if((13*tr.NT) > tr.NP) reset.dispatch(1 + (13*tr.NT)/1024);
+		else reset.dispatch(1 + tr.NP/1024);
 
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 0);
-		triangleshader.uniform("KTriangles", KTriangles);
-		triangleshader.uniform("RATIO", RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, NTriangles);
+		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
 
 	};
 
@@ -127,24 +132,24 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);
 		triangleshader.uniform("mode", 1);
-		triangleshader.uniform("KTriangles", KTriangles);
-		triangleshader.uniform("RATIO", RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, NTriangles);
+		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
 
 	};
 
 	auto doshift = [&](){
 
 		gradient.use();
-		gradient.uniform("KTriangles", KTriangles);
-		gradient.uniform("RATIO", RATIO);
-		gradient.dispatch(1 + KTriangles/1024);
+		gradient.uniform("KTriangles", tr.NT);
+		gradient.uniform("RATIO", tri::RATIO);
+		gradient.dispatch(1 + tr.NT/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		shift.use();
-		shift.uniform("NPoints", NPoints);
-		shift.uniform("RATIO", RATIO);
-		shift.dispatch(1 + NPoints/1024);
+		shift.uniform("NPoints", tr.NP);
+		shift.uniform("RATIO", tri::RATIO);
+		shift.dispatch(1 + tr.NP/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 	};
@@ -154,29 +159,19 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 2);
-		triangleshader.uniform("K", KTriangles);
-		triangleshader.uniform("RATIO", RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, KTriangles);
+		triangleshader.uniform("K", tr.NT);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
 	//	point.use();
-	//	point.uniform("RATIO", RATIO);
-	//	pointmesh.render(GL_POINTS);
+	//	point.uniform("RATIO", tri::RATIO);
+	//	pointmesh.render(GL_POINTS, tr.NT);
 
 		linestrip.use();
-		linestrip.uniform("RATIO", RATIO);
-		linestripinstance.render(GL_LINE_STRIP, KTriangles);
+		linestrip.uniform("RATIO", tri::RATIO);
+		linestripinstance.render(GL_LINE_STRIP, tr.NT);
 
 	};
-
-	auto upload = [&](){
-
-		trianglebuf->fill(triangles);
-		pointbuf->fill(points);
-		pointmesh.SIZE = NPoints;
-
-	};
-
-	//doreset();
 
 	// Main Functions
 
@@ -189,7 +184,6 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	int NN = 0;
 	Tiny::loop([&](){
 
 		if(paused) return;
@@ -201,11 +195,13 @@ int main( int argc, char* args[] ) {
 
 		// Retrieve Data from Compute Shader
 
-		tenergybuf->retrieve(NTriangles, err);
-		pointbuf->retrieve(points);
+		tri::tenergybuf->retrieve((13*tr.NT), tri::err);
+		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
+		tri::pointbuf->retrieve(tr.points);
 
-	//	if( geterr() < 1E-6 ){
 		if(donext){
+	//	if( tri::geterr(&tr) < 1E-4 ){
+
 			donext = false;
 			cout<<"RETRIANGULATE"<<endl;
 
@@ -213,7 +209,8 @@ int main( int argc, char* args[] ) {
 
 			if(!importlist.empty()){
 
-				read(to_string(importlist.back())+".tri");
+				tr.read(to_string(importlist.back())+".tri");
+				tri::upload(&tr);
 				importlist.pop_back();
 
 				doreset();
@@ -226,7 +223,7 @@ int main( int argc, char* args[] ) {
 			else{
 
 				Tiny::event.quit = true;
-				write("out.tri");
+				tr.write("out.tri");
 				return;
 
 			}
@@ -235,16 +232,8 @@ int main( int argc, char* args[] ) {
 
 	});
 
-	delete[] err;
-	delete[] cn;
 
-	delete trianglebuf;
-	delete pointbuf;
-	delete tcolaccbuf;
-	delete tcolnumbuf;
-	delete tenergybuf;
-	delete pgradbuf;
-
+	tri::quit();
 	Tiny::quit();
 
 	return 0;

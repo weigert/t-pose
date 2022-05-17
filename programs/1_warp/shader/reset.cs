@@ -18,6 +18,10 @@ layout (std430, binding = 5) buffer gradient {
   ivec2 gr[];
 };
 
+layout (std430, binding = 6) buffer nring {
+  int nr[];
+};
+
 
 uniform int NTriangles;
 uniform int NPoints;
@@ -35,6 +39,7 @@ void main(){
   //if(index < NPoints){
 
     gr[index] = ivec2(0);
+    nr[index] = 0;
 
   //}
 

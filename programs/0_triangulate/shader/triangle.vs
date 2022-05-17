@@ -11,6 +11,14 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
+layout (std430, binding = 5) buffer gradient {
+  ivec2 gr[];
+};
+
+layout (std430, binding = 6) buffer nring {
+  int nr[];
+};
+
 out VS_OUT {
 
   vec2 position;
@@ -20,6 +28,7 @@ out VS_OUT {
 
 uniform float RATIO;
 uniform int KTriangles;
+uniform int mode;
 
 void main() {
 
@@ -62,5 +71,75 @@ void main() {
 
   gl_Position = vec4(tpos, -1, 1.0f);
   vs_out.position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
+
+  /*
+
+  if( TDIV == 0 && mode == 1 ) {
+
+    if (in_Position.x > 0){
+      atomicAdd(gr[ind[TMOD].x].x, 1000000);
+      atomicAdd(gr[ind[TMOD].x].y, 1000000);
+    }
+
+    if (in_Position.y > 0){
+      atomicAdd(gr[ind[TMOD].y].x, 1000000);
+      atomicAdd(gr[ind[TMOD].y].y, 1000000);
+    }
+
+    if (in_Position.z > 0){
+      atomicAdd(gr[ind[TMOD].z].x, 1000000);
+      atomicAdd(gr[ind[TMOD].z].y, 1000000);
+    }
+
+  }
+
+  */
+
+  //Add One-Ring Energy
+
+  if( TDIV == 0 && mode == 0 )
+    atomicAdd(nr[TMOD], 1 );    //count the n-ring! (divided by 3)
+
+  if( TDIV == 0 && mode == 1 ) {
+
+    const float lambda = 100*256*256;
+
+    if (in_Position.x > 0){
+
+      vec2 wva = p[ind[TMOD].x] - p[ind[TMOD].y]; //Distance from this Vertex to Prev
+      vec2 wvb = p[ind[TMOD].x] - p[ind[TMOD].z]; //Distance from this Vertex to Next
+      //Add Direct Energy Gradient
+      atomicAdd(gr[ind[TMOD].x].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].x].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].x].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].x].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
+
+    }
+
+    if (in_Position.y > 0){
+
+      vec2 wva = p[ind[TMOD].y] - p[ind[TMOD].z]; //Distance from this Vertex to Prev
+      vec2 wvb = p[ind[TMOD].y] - p[ind[TMOD].x]; //Distance from this Vertex to Next
+      //Add Direct Energy Gradient
+      atomicAdd(gr[ind[TMOD].y].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].y].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].y].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].y].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
+
+    }
+
+    if (in_Position.z > 0){
+
+      vec2 wva = p[ind[TMOD].z] - p[ind[TMOD].x]; //Distance from this Vertex to Prev
+      vec2 wvb = p[ind[TMOD].z] - p[ind[TMOD].y]; //Distance from this Vertex to Next
+      //Add Direct Energy Gradient
+      atomicAdd(gr[ind[TMOD].z].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].z].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].z].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
+      atomicAdd(gr[ind[TMOD].z].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
+
+    }
+
+  }
 
 }
