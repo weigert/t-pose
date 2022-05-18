@@ -6,11 +6,16 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
-layout (std430, binding = 4) buffer energy {
-  int en[];
+layout (std430, binding = 4) buffer tenergy {
+  int ten[];
 };
 
-layout (std430, binding = 5) buffer gradient {
+layout (std430, binding = 5) buffer penergy {
+  int pen[];
+};
+
+
+layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
 
@@ -25,18 +30,18 @@ void main(){
   // Add the Non-Normalized Gradient to the Per-Vertex Gradients
 
   ivec2 xgrad = ivec2(
-    en[ 1*KTriangles + index] - en[ 2*KTriangles + index],
-    en[ 3*KTriangles + index] - en[ 4*KTriangles + index]
+    ten[ 1*KTriangles + index] - ten[ 2*KTriangles + index],
+    ten[ 3*KTriangles + index] - ten[ 4*KTriangles + index]
   );
 
   ivec2 ygrad = ivec2(
-    en[ 5*KTriangles + index] - en[ 6*KTriangles + index],
-    en[ 7*KTriangles + index] - en[ 8*KTriangles + index]
+    ten[ 5*KTriangles + index] - ten[ 6*KTriangles + index],
+    ten[ 7*KTriangles + index] - ten[ 8*KTriangles + index]
   );
 
   ivec2 zgrad = ivec2(
-    en[ 9*KTriangles + index] - en[10*KTriangles + index],
-    en[11*KTriangles + index] - en[12*KTriangles + index]
+    ten[ 9*KTriangles + index] - ten[10*KTriangles + index],
+    ten[11*KTriangles + index] - ten[12*KTriangles + index]
   );
 
   atomicAdd(gr[ind[index].x].x, xgrad.x /* + int(0.0f*ygrad.x) + int(0.0f*zgrad.x) */ );

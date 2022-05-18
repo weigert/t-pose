@@ -17,7 +17,7 @@ int main( int argc, char* args[] ) {
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
 
 	bool paused = true;
-	bool donext = false;
+	bool showlines = false;
 
 	vector<vec2> otherpoints;
 
@@ -27,17 +27,14 @@ int main( int argc, char* args[] ) {
 			paused = !paused;
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n){
-			donext = !donext;
-		//	if(donext) pointbuf->fill(otherpoints);
-		//	else pointbuf->fill(points);
-		//	if(donext) read("triangulation_out.tri");
-		//	else read("triangulation_500.tri");
+			showlines = !showlines;
+
 		}
 
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("../../resource/imageB.png"));		//Load Texture with Image
+	Texture tex(image::load("../../resource/imageA.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
@@ -47,9 +44,9 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_DEPTH_TEST);
 
 	initbufs();
-	read("out.tri");
+	read("2000.tri");
 	otherpoints = points;
-	read("1000.tri");
+	read("out.tri");
 
 	Buffer otherpointbuf(otherpoints);
 
@@ -63,12 +60,13 @@ int main( int argc, char* args[] ) {
 
 	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "otherpoints"});
 	triangleshader.bind<vec2>("points", pointbuf);
-	triangleshader.bind<vec2>("otherpoints", &otherpointbuf);
 	triangleshader.bind<ivec4>("index", trianglebuf);
+	triangleshader.bind<vec2>("otherpoints", &otherpointbuf);
 
-	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
+	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index", "otherpoints"});
 	linestrip.bind<vec2>("points", pointbuf);
 	linestrip.bind<ivec4>("index", trianglebuf);
+	linestrip.bind<vec2>("otherpoints", &otherpointbuf);
 
 	Model pointmesh({"in_Position"});
 	pointmesh.bind<vec2>("in_Position", pointbuf);
@@ -94,9 +92,12 @@ int main( int argc, char* args[] ) {
 	//	point.uniform("RATIO", RATIO);
 	//	pointmesh.render(GL_POINTS);
 
-	//	linestrip.use();
-	//	linestrip.uniform("RATIO", RATIO);
-	//	linestripinstance.render(GL_LINE_STRIP, KTriangles);
+		if(showlines){
+			linestrip.use();
+			linestrip.uniform("RATIO", RATIO);
+			linestrip.uniform("s", s);
+			linestripinstance.render(GL_LINE_STRIP, KTriangles);
+		}
 
 	};
 
@@ -111,7 +112,7 @@ int main( int argc, char* args[] ) {
 
 	Tiny::view.pipeline = [&](){
 
-		Tiny::view.target(color::black);				//Target Main Screen
+		Tiny::view.target(color::white);				//Target Main Screen
 		draw();
 
 	};

@@ -18,6 +18,7 @@ layout (std430, binding = 3) buffer otherpoints {
 out VS_OUT {
 
   vec2 position;
+  vec2 opos;
   flat int index;
 
 } vs_out;
@@ -29,6 +30,7 @@ uniform float s;
 void main() {
 
   vec2 tpos = vec2(0);
+  vec2 opos = vec2(0);
   float dp = 0.01f;
   int TDIV = gl_InstanceID/KTriangles;
   int TMOD = gl_InstanceID%KTriangles;
@@ -39,21 +41,13 @@ void main() {
   if (in_Position.z > 0) tpos = mix(p[ind[TMOD].z], op[ind[TMOD].z], s);
   tpos.x /= RATIO;
 
-
-  if(TDIV == 1 && in_Position.x > 0) tpos  += vec2(dp, 0);
-  else if(TDIV == 2 && in_Position.x > 0) tpos  -= vec2(dp, 0);
-  else if(TDIV == 3 && in_Position.x > 0) tpos  += vec2( 0,dp);
-  else if(TDIV == 4 && in_Position.x > 0) tpos  -= vec2( 0,dp);
-  else if(TDIV == 5 && in_Position.y > 0) tpos  += vec2(dp, 0);
-  else if(TDIV == 6 && in_Position.y > 0) tpos  -= vec2(dp, 0);
-  else if(TDIV == 7 && in_Position.y > 0) tpos  += vec2( 0,dp);
-  else if(TDIV == 8 && in_Position.y > 0) tpos  -= vec2( 0,dp);
-  else if(TDIV == 9 && in_Position.z > 0) tpos  += vec2(dp, 0);
-  else if(TDIV == 10 && in_Position.z > 0) tpos -= vec2(dp, 0);
-  else if(TDIV == 11 && in_Position.z > 0) tpos += vec2( 0,dp);
-  else if(TDIV == 12 && in_Position.z > 0) tpos -= vec2( 0,dp);
+  if (in_Position.x > 0) opos = mix(p[ind[TMOD].x], op[ind[TMOD].x], 1);
+  if (in_Position.y > 0) opos = mix(p[ind[TMOD].y], op[ind[TMOD].y], 1);
+  if (in_Position.z > 0) opos = mix(p[ind[TMOD].z], op[ind[TMOD].z], 1);
+  opos.x /= RATIO;
 
   gl_Position = vec4(tpos, -1, 1.0f);
   vs_out.position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
+  vs_out.opos = vec2(0.5*(1.0+opos.x), 0.5*(1.0-opos.y));
 
 }

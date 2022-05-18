@@ -6,7 +6,7 @@ layout (std430, binding = 0) buffer points {
   vec2 p[];
 };
 
-layout (std430, binding = 5) buffer gradient {
+layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
 
@@ -42,6 +42,6 @@ void main(){
     tgr.y = 0;
   }
 
-  p[index] -=  0.00005 * tgr / 256 / 256;
+  p[index] -=  0.00003 * tgr / 256 / 256;
 
 }

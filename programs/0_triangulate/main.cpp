@@ -38,36 +38,38 @@ int main( int argc, char* args[] ) {
 
 	tri::init();
 
-	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "energy", "gradient", "nring"});
-	triangleshader.bind<vec2>("points", tri::pointbuf);
-	triangleshader.bind<ivec4>("index", tri::trianglebuf);
-	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
-	triangleshader.bind<int>("colnum", tri::tcolnumbuf);
-	triangleshader.bind<int>("energy", tri::tenergybuf);
-	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
-	triangleshader.bind<int>("nring", tri::tnringbuf);
-
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
 	linestrip.bind<vec2>("points", tri::pointbuf);
 	linestrip.bind<ivec4>("index", tri::trianglebuf);
 
+	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "tenergy", "penergy", "gradient", "nring"});
+	triangleshader.bind<vec2>("points", tri::pointbuf);
+	triangleshader.bind<ivec4>("index", tri::trianglebuf);
+	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
+	triangleshader.bind<int>("colnum", tri::tcolnumbuf);
+	triangleshader.bind<int>("tenergy", tri::tenergybuf);
+	triangleshader.bind<int>("penergy", tri::penergybuf);
+	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
+	triangleshader.bind<int>("nring", tri::tnringbuf);
+
 	// SSBO Manipulation Compute Shaders (Reset / Average)
 
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "energy", "gradient", "nring"});
+	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "tenergy", "penergy", "gradient", "nring"});
 	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
 	reset.bind<int>("colnum", tri::tcolnumbuf);
-	reset.bind<int>("energy", tri::tenergybuf);
+	reset.bind<int>("tenergy", tri::tenergybuf);
+	reset.bind<int>("penergy", tri::penergybuf);
 	reset.bind<ivec2>("gradient", tri::pgradbuf);
 	reset.bind<int>("nring", tri::tnringbuf);
 
-	Compute average({"shader/average.cs"}, {"colacc", "colnum", "energy"});
+	Compute average({"shader/average.cs"}, {"colacc", "colnum"});
 	average.bind<ivec4>("colacc", tri::tcolaccbuf);
 	average.bind<int>("colnum", tri::tcolnumbuf);
-	average.bind<int>("energy", tri::tenergybuf);
 
-	Compute gradient({"shader/gradient.cs"}, {"index", "energy", "gradient"});
+	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "penergy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
-	gradient.bind<int>("energy", tri::tenergybuf);
+	gradient.bind<int>("tenergy", tri::tenergybuf);
+	gradient.bind<int>("penergy", tri::penergybuf);
 	gradient.bind<ivec2>("gradient", tri::pgradbuf);
 
 	Compute shift({"shader/shift.cs"}, {"points", "gradient"});
@@ -154,12 +156,12 @@ int main( int argc, char* args[] ) {
 		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
 	//	point.use();
-	//	point.uniform("RATIO", RATIO);
+	//	point.uniform("RATIO", tri::RATIO);
 	//	pointmesh.render(GL_POINTS, tr.NT);
 
-	//	linestrip.use();
-	//	linestrip.uniform("RATIO", RATIO);
-	//	linestripinstance.render(GL_LINE_STRIP, tr.NT);
+		linestrip.use();
+		linestrip.uniform("RATIO", tri::RATIO);
+		linestripinstance.render(GL_LINE_STRIP, tr.NT);
 
 	};
 
@@ -177,6 +179,16 @@ int main( int argc, char* args[] ) {
 	};
 
 	vector<int> exportlist = {
+		2000,
+		1900,
+		1800,
+		1700,
+		1600,
+		1500,
+		1400,
+		1300,
+		1200,
+		1100,
 		1000,
 		900,
 		800,
@@ -201,7 +213,8 @@ int main( int argc, char* args[] ) {
 
 		// Retrieve Data from Compute Shader
 
-		tri::tenergybuf->retrieve((13*tr.NT), tri::err);
+		tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+		tri::penergybuf->retrieve((13*tr.NT), tri::perr);
 		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
 		tri::pointbuf->retrieve(tr.points);
 
@@ -227,16 +240,34 @@ int main( int argc, char* args[] ) {
 			}
 
 			int tta = tri::maxerrid(&tr);
-			if(tta >= 0)
-			if(tr.split(tta)){
+			float curmaxerr = tri::maxerr;
+
+			while(tta >= 0 && tr.split(tta)){
 
 				updated = true;
+				break;
+				/*
+
+				tr.optimize();
+
+				tri::upload( &tr, false );
+				computecolors();
+				doenergy();
+
+				tri::tenergybuf->retrieve((13*tr.NT), tri::err);
+				tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
+				tta = tri::maxerrid(&tr);
+
+				if(tta == -1) break;
+				if(tri::maxerr <= curmaxerr)
+					break;
+
+					cout<<tri::maxerr<<" "<<curmaxerr<<endl;
+			//	curmaxerr = tri::maxerr;
 
 				// Necessary if we split more than one guy
 
-				//upload();
-				//computecolors( false );
-				//doenergy( false );
+				*/
 
 			}
 

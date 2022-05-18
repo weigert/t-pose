@@ -11,11 +11,15 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
-layout (std430, binding = 5) buffer gradient {
+layout (std430, binding = 5) buffer penergy {
+  int pen[];
+};
+
+layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
 
-layout (std430, binding = 6) buffer nring {
+layout (std430, binding = 7) buffer nring {
   int nr[];
 };
 
@@ -77,15 +81,37 @@ void main() {
   if( TDIV == 0 && mode == 0 )
     atomicAdd(nr[TMOD], 1 );    //count the n-ring! (divided by 3)
 
+  // Compute One-Ring Energy per-Vertex
+
+  /*
+
+  if( mode == 1 ){
+
+    if (in_Position.x > 0){
+
+      vec2 wva = tpos - p[ind[TMOD].y]; //Distance from this Vertex to Prev
+      vec2 wvb = tpos - p[ind[TMOD].z]; //Distance from this Vertex to Next
+    ///  atomicAdd(pen[ind[TMOD].x], int(lambda*0.5/3.0*dot(d, d)/nr[TMOD]));
+  //    atomicAdd(pen[ind[TMOD].x], int(lambda*0.5/3.0*dot(d, d)/nr[TMOD]));
+
+    //  atomicAdd(gr[ind[TMOD].x].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
+
+
+
+    }
+
+
+
+
+
+  }
+
+  */
+
+
+
+
   if( TDIV == 0 && mode == 1 ) {
-
-    /*
-        This shader is executed once per vertex of all triangles (including shifted ones).
-        The instance ID is per triangle.
-
-        I therefore take a look at all vertices of the original triangle (i.e. TDIV = 0),
-        and compute the energy gradient of the one-ring energy with the known shifts.
-    */
 
     const float lambda = 1000*256*256;
 
@@ -98,7 +124,9 @@ void main() {
       atomicAdd(gr[ind[TMOD].x].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
       atomicAdd(gr[ind[TMOD].x].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
       atomicAdd(gr[ind[TMOD].x].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
-
+      //Add Energy of Vertex
+      atomicAdd(pen[ind[TMOD].x], int(lambda*0.5/3.0*dot(wva, wva))/nr[TMOD]);
+      atomicAdd(pen[ind[TMOD].x], int(lambda*0.5/3.0*dot(wvb, wvb))/nr[TMOD]);
     }
 
     if (in_Position.y > 0){
@@ -110,7 +138,9 @@ void main() {
       atomicAdd(gr[ind[TMOD].y].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
       atomicAdd(gr[ind[TMOD].y].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
       atomicAdd(gr[ind[TMOD].y].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
-
+      //Add Energy of Vertex
+      atomicAdd(pen[ind[TMOD].y], int(lambda*0.5/3.0*dot(wva, wva))/nr[TMOD]);
+      atomicAdd(pen[ind[TMOD].y], int(lambda*0.5/3.0*dot(wvb, wvb))/nr[TMOD]);
     }
 
     if (in_Position.y > 0){
@@ -122,7 +152,9 @@ void main() {
       atomicAdd(gr[ind[TMOD].z].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
       atomicAdd(gr[ind[TMOD].z].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
       atomicAdd(gr[ind[TMOD].z].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
-
+      //Add Energy of Vertex
+      atomicAdd(pen[ind[TMOD].z], int(lambda*0.5/3.0*dot(wva, wva))/nr[TMOD]);
+      atomicAdd(pen[ind[TMOD].z], int(lambda*0.5/3.0*dot(wvb, wvb))/nr[TMOD]);
     }
 
   }

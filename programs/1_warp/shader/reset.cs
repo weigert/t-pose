@@ -10,15 +10,19 @@ layout (std430, binding = 3) buffer colnum {
   int cn[];
 };
 
-layout (std430, binding = 4) buffer energy {
-  int en[];
+layout (std430, binding = 4) buffer tenergy {
+  int ten[];
 };
 
-layout (std430, binding = 5) buffer gradient {
+layout (std430, binding = 5) buffer penergy {
+  int pen[];
+};
+
+layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
 
-layout (std430, binding = 6) buffer nring {
+layout (std430, binding = 7) buffer nring {
   int nr[];
 };
 
@@ -32,7 +36,8 @@ void main(){
 
   //if(index < NTriangles){
     cn[index] = 0;
-    en[index] = 0;
+    ten[index] = 0;
+    pen[index] = 0;
 
   //}
 

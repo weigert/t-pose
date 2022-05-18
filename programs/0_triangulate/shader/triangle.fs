@@ -8,8 +8,12 @@ layout (std430, binding = 3) buffer colnum {
   int cn[];
 };
 
-layout (std430, binding = 4) buffer energy {
-  int en[];
+layout (std430, binding = 4) buffer tenergy {
+  int ten[];
+};
+
+layout (std430, binding = 5) buffer penergy {
+  int pen[];
 };
 
 uniform sampler2D imageTexture;
@@ -41,7 +45,7 @@ void main(){
   if( mode == 1 ){
 
     vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb);
-    atomicAdd(en[vs_out.index], int(0.5*dot(d, d)));
+    atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
 
   }
 

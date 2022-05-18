@@ -13,7 +13,7 @@ int main( int argc, char* args[] ) {
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
+	Tiny::window("Energy Based Triangulation Warping, Nicholas Mcdonald 2022", 960, 540);
 	tri::RATIO = 9.6/5.4;
 
 	bool paused = true;
@@ -34,6 +34,16 @@ int main( int argc, char* args[] ) {
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
+		2000,
+		1900,
+		1800,
+		1700,
+		1600,
+		1500,
+		1400,
+		1300,
+		1200,
+		1100,
 		1000,
 		900,
 		800,
@@ -57,12 +67,13 @@ int main( int argc, char* args[] ) {
 
 	tri::init();
 
-	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "energy", "gradient", "nring"});
+	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "tenergy", "penergy" "gradient", "nring"});
 	triangleshader.bind<vec2>("points", tri::pointbuf);
 	triangleshader.bind<ivec4>("index", tri::trianglebuf);
 	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
 	triangleshader.bind<int>("colnum", tri::tcolnumbuf);
-	triangleshader.bind<int>("energy", tri::tenergybuf);
+	triangleshader.bind<int>("tenergy", tri::tenergybuf);
+	triangleshader.bind<int>("penergy", tri::penergybuf);
 	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
 	triangleshader.bind<int>("nring", tri::tnringbuf);
 
@@ -72,16 +83,18 @@ int main( int argc, char* args[] ) {
 
 	// SSBO Manipulation Compute Shaders (Reset / Average)
 
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "energy", "gradient", "nring"});
+	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "tenergy", "penergy", "gradient", "nring"});
 	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
 	reset.bind<int>("colnum", tri::tcolnumbuf);
-	reset.bind<int>("energy", tri::tenergybuf);
+	reset.bind<int>("tenergy", tri::tenergybuf);
+	reset.bind<int>("penergy", tri::penergybuf);
 	reset.bind<ivec2>("gradient", tri::pgradbuf);
 	reset.bind<int>("nring", tri::tnringbuf);
 
-	Compute gradient({"shader/gradient.cs"}, {"index", "energy", "gradient"});
+	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "penergy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
-	gradient.bind<int>("energy", tri::tenergybuf);
+	gradient.bind<int>("tenergy", tri::tenergybuf);
+	gradient.bind<int>("penergy", tri::penergybuf);
 	gradient.bind<ivec2>("gradient", tri::pgradbuf);
 
 	Compute shift({"shader/shift.cs"}, {"points", "gradient"});
@@ -174,12 +187,12 @@ int main( int argc, char* args[] ) {
 	};
 
 	// Main Functions
+	doreset();
 
 	Tiny::view.pipeline = [&](){
 
 		Tiny::view.target(color::black);				//Target Main Screen
 
-		doreset();
 		draw();
 
 	};
@@ -190,6 +203,7 @@ int main( int argc, char* args[] ) {
 
 		// Compute Cost and Gradients, Shift Points
 
+		doreset();
 		doenergy();
 		doshift();
 
@@ -199,13 +213,13 @@ int main( int argc, char* args[] ) {
 		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
 		tri::pointbuf->retrieve(tr.points);
 
-		if(donext){
-	//	if( tri::geterr(&tr) < 1E-4 ){
+	//	if(donext){
+		if( tri::geterr(&tr) < 1E-6 ){
 
 			donext = false;
 			cout<<"RETRIANGULATE"<<endl;
 
-			paused = true;
+		//	paused = true;
 
 			if(!importlist.empty()){
 

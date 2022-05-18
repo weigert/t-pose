@@ -10,10 +10,6 @@ layout (std430, binding = 3) buffer colnum {
   int cn[];
 };
 
-layout (std430, binding = 4) buffer energy {
-  int en[];
-};
-
 uniform int NTriangles;
 
 void main(){
