@@ -16,7 +16,11 @@ int main( int argc, char* args[] ) {
 
 	// COMPUTE THE RECONSTRUCTION
 
-	Matrix3f F = Fundamental(A, B);
+	srand(time(NULL));
+	Matrix3f F = FundamentalSAMPSON(A, B);
+	//Matrix3f F = Fundamental(A, B);
+
+	cout<<"Fundamental Matrix F: "<<F<<endl;
 
 	// Question: How do I compute / visualize epipoles?
 
@@ -29,8 +33,8 @@ int main( int argc, char* args[] ) {
 	for(size_t i = 0; i < B.size(); i++)
 		lB.push_back(EpipolarLine(F, A[i]));
 
-	A.push_back(Epipole(F, true));
-	B.push_back(Epipole(F, false));
+	//A.push_back(Epipole(F, true));
+	//B.push_back(Epipole(F, false));
 
 	Tiny::view.pointSize = 5.0f;
 	Tiny::window("Point-Match Reconstruction, Nicholas Mcdonald 2022", 1200, 675);
@@ -93,6 +97,7 @@ int main( int argc, char* args[] ) {
 			flip = !flip;
 	};
 
+/*
 	Tiny::view.target(color::black);				//Target Main Screen
 
 	image.use();														//Use Effect Shader
@@ -101,28 +106,28 @@ int main( int argc, char* args[] ) {
 	image.uniform("flip", flip);
 	image.uniform("model", flat.model);		//Add Model Matrix
 	flat.render();
+*/
 
 	Tiny::view.pipeline = [&](){
 
-		Tiny::view.target(color::black, false,false);				//Target Main Screen
+		Tiny::view.target(color::black);				//Target Main Screen
 
-		/*
 		image.use();														//Use Effect Shader
 		image.texture("imageTextureA", texA);		//Load Texture
 		image.texture("imageTextureB", texB);		//Load Texture
 		image.uniform("flip", flip);
 		image.uniform("model", flat.model);		//Add Model Matrix
 		flat.render();
-		*/
+
 		if(flip) {
 
 			point.use();
 			point.uniform("color", vec3(1,0,0));
 			pmeshA.render(GL_POINTS);
 
-		//	epipolarline.use();
-		//	epipolarline.uniform("color", vec3(1,0,0));
-		//	lmeshA.render(GL_POINTS);
+			epipolarline.use();
+			epipolarline.uniform("color", vec3(1,0,0));
+			lmeshA.render(GL_POINTS);
 
 		}
 
@@ -132,9 +137,9 @@ int main( int argc, char* args[] ) {
 			point.uniform("color", vec3(1,0,1));
 			pmeshB.render(GL_POINTS);
 
-		//	epipolarline.use();
-		//	epipolarline.uniform("color", vec3(1,0,1));
-		//	lmeshB.render(GL_POINTS);
+			epipolarline.use();
+			epipolarline.uniform("color", vec3(1,0,1));
+			lmeshB.render(GL_POINTS);
 
 		}
 
@@ -145,9 +150,11 @@ int main( int argc, char* args[] ) {
 
 	Tiny::loop([&](){
 
+		/*
+
 		vector<vec2> AA, BB;
 
-		for(size_t j = 0; j < 50; j++){
+		for(size_t j = 0; j < 130; j++){
 			AA.push_back(A[rand()%A.size()]);
 			BB.push_back(B[rand()%B.size()]);
 		}
@@ -175,6 +182,10 @@ int main( int argc, char* args[] ) {
 		lbufB.fill(lB);
 
 		usleep(50000);
+
+		*/
+
+
 
 	});
 	Tiny::quit();
