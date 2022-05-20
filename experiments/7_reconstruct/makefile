@@ -2,7 +2,7 @@
 # Compiler Configuration
 
 CC = g++ -std=c++17
-CF = -Wfatal-errors
+CF = -Wfatal-errors -O3
 LF = -I/usr/local/include -L/usr/local/lib
 
 # General Linking

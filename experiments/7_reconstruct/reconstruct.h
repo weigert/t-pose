@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 
 using namespace std;
 using namespace glm;
@@ -335,35 +336,51 @@ Matrix3f FundamentalRANSAC( vector<vec2> pA, vector<vec2> pB ){
 
 // Root-Calculator
 
-vector<float> roots(vector<float>& coefs){
+/*
 
-  // Companion Matrix
-
-  size_t K = coefs.size();
-  MatrixXf C = MatrixXf::Zero(K, K);
-
-  // Fill Companion Matrix
-
-  for(size_t k = 0; k < K; k++)
-    C(k, K-1) = -coefs[k];
-
-  for(size_t k = 1; k < K; k++)
-    C(k, k-1) = 1;
-
-  // Solve
-
-  SelfAdjointEigenSolver<Eigen::MatrixXf> CS(C);
-  cout<<"ROOTS: "<<CS.eigenvalues()<<endl;
-  /*
-if (eigensolver.info() != Eigen::Success) abort();
-std::cout << "The eigenvalues of A are:\n" << eigensolver.eigenvalues() << std::endl;
-std::cout << "Here's a matrix whose columns are eigenvectors of A \n"
-     << "corresponding to these eigenvalues:\n"
-     << eigensolver.eigenvectors() << std::endl;
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
 }
+
+template<typename T>
+vector<T> bisect(function<T(T)> f, T min = -1000.0f, T max = 1000.0f){
+
+  vector<T> roots;
+
+  const size_t MAXITER = 2000;
+  size_t NITER = 0;
+  const float tol = 1E-6;
+
+  while(NITER++ < MAXITER){
+
+      T cur = (max + min)/2;
+      if(f(c) < )
+
+  }
+
+  if(f(min)*f(max) < 0)
+
+}
+
 */
 
-  return coefs;
+VectorXd roots(vector<double> a){
+
+  size_t K = a.size();
+  MatrixXd C = MatrixXd::Zero(K,K);
+
+  for(size_t k = 0; k < K; k++)
+    C(k,K-1) = -a[k];
+
+  for(size_t k = 1; k < K; k++)
+    C(k,k-1) = 1;
+
+  cout<<"Companion Matrix: "<<C<<endl;
+
+  EigenSolver<MatrixXd> CS(C);
+  cout<<"ROOTS: "<<CS.eigenvalues()<<endl;
+
+  return CS.eigenvalues().real();
 
 }
 
@@ -397,8 +414,8 @@ void triangulate(MatrixXf F, vec2 A, vec2 B){
   Vector3f eB = U.col(2); //Left Epipole
   Vector3f eA = V.col(2); //Right Epipole
 
-  eB /= (eB(0)*eB(0) + eB(1)*eB(1));
-  eA /= (eA(0)*eA(0) + eA(1)*eA(1));
+  eB /= sqrt(eB(0)*eB(0) + eB(1)*eB(1));
+  eA /= sqrt(eA(0)*eA(0) + eA(1)*eA(1));
 
   // Compute Rotation Matrices
 
@@ -416,37 +433,44 @@ void triangulate(MatrixXf F, vec2 A, vec2 B){
 
   F = RB * F * RA.transpose();
 
-  // Polynomial Coefficients
+  cout<<"Fundamental Matrix F "<<F<<endl;
 
-  float m = eA(2);
-  float n = eB(2);
-  float a = F(1, 1);
-  float b = F(1, 2);
-  float c = F(2, 1);
-  float d = F(2, 2);
+  // Polynomial Coefficients: I know these values are correct!!!!!
 
-  // Solve the Polynomial
+  double m = eA(2);
+  double n = eB(2);
+  double a = F(1, 1);
+  double b = F(1, 2);
+  double c = F(2, 1);
+  double d = F(2, 2);
 
-  float a0 = 0;
-  float a1 = ( b*b*b*b + 2*b*b*d*d*n*n + d*d*d*d*n*n*n*n );
-  float a2 = ( 4*a*b*b*b + 4*a*b*d*d*n*n + 4*b*b*c*d*n*n + 4*c*d*d*d*n*n*n*n );
-  float a3 = ( 6*a*a*b*b + 2*a*a*d*d*n*n + 8*a*b*c*d*n*n + 2*b*b*c*c*n*n + 6*c*c*d*d*n*n*n*n );
-  float a4 = ( 4*a*a*a*b + 4*a*a*c*d*n*n + 4*a*b*c*c*n*n + 4*c*c*c*d*n*n*n*n );
-  float a5 = ( a*a*a*a + 2*a*a*c*c*n*n + c*c*c*c*n*n*n*n );
-  float a6 = 0;
+  // I want to solve for the roots of the function:
+  // Wolfram Alpha Says:
 
-  a0 -= ( a*b*d*d - b*b*c*d );
-  a1 -= ( a*a*d*d - b*b*c*c );
-  a2 -= ( a*a*c*d - a*b*c*c + 2*a*b*d*d*m*m - 2*b*b*c*d*m*m );
-  a3 -= ( 2*a*a*d*d*m*m - 2*b*b*c*c*m*m );
-  a4 -= ( 2*a*a*c*d*m*m - 2*a*b*c*c*m*m + a*b*d*d*m*m*m*m - b*b*c*d*m*m*m*m );
-  a5 -= ( a*a*d*d*m*m*m*m - b*b*c*c*m*m*m*m );
-  a6 -= ( a*a*c*d*m*m*m*m - a*b*c*c*m*m*m*m );
+  double a0 = b*b*c*d - a*b*d*d;
 
-//  roots();
+  double a1 = b*b*b*b + d*d*d*d*n*n*n*n - a*a*d*d + 2.0*b*b*d*d*n*n + b*b*c*c;
+
+  double a2 = -a*a*c*d + 4.0*a*b*b*b + a*b*c*c - 2.0*a*b*d*d*m*m + 4.0*a*b*d*d*n*n + 2.0*b*b*c*d*m*m + 4.0*b*b*c*d*n*n + 4.0*c*d*d*d*n*n*n*n;
+
+  double a3 = 6.0*a*a*b*b - 2.0*a*a*d*d*m*m + 2.0*a*a*d*d*n*n + 8.0*a*b*c*d*n*n + 2.0*b*b*c*c*m*m + 2.0*b*b*c*c*n*n + 6.0*c*c*d*d*n*n*n*n;
+
+  double a4 = 4.0*a*a*a*b - 2.0*a*a*c*d*m*m + 4.0*a*a*c*d*n*n + 2.0*a*b*c*c*m*m + 4.0*a*b*c*c*n*n - a*b*d*d*m*m*m*m + b*b*c*d*m*m*m*m + 4.0*c*c*c*d*n*n*n*n;
+
+  double a5 = a*a*a*a - a*a*d*d*m*m*m*m + 2.0*a*a*c*c*n*n + c*c*c*c*n*n*n*n + b*b*c*c*m*m*m*m;
+
+  double a6 = a*b*c*c*m*m*m*m - a*a*c*d*m*m*m*m;
+
+  VectorXd EW = roots({a0/a6, a1/a6, a2/a6, a3/a6, a4/a6, a5/a6});
+
+  function<double(double)> g = [&](double t){
+    return t*pow( pow( a*t+b , 2 ) + n*n * pow( c*t+d , 2 ) , 2 ) - (a*d-b*c) * pow( 1.0 + m*m*t*t, 2 ) *( a*t + b ) * ( c*t + d );
+  };
+
+  for(size_t k = 0; k < 6; k++)
+    cout<<g(EW(k))<<endl;
 
 }
-
 
 /*
 ================================================================================

@@ -22,6 +22,8 @@ int main( int argc, char* args[] ) {
 
 	cout<<"Fundamental Matrix F: "<<F<<endl;
 
+	triangulate(F, A[0], B[0]);
+
 	// Question: How do I compute / visualize epipoles?
 
 	vector<vec3> lA; //Epipolar Lines corresponding to points A
