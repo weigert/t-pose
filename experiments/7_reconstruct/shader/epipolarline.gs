@@ -15,7 +15,9 @@ void main() {
   float x = 0;
   vec2 p = vec2(x, P.z/P.y + x*P.x/P.y);
 
-  p = 2*vec2(p.x,1+p.y)-1;
+
+  p = 2*(vec2(p.x,1+p.y)-0.5);
+//  p = 2*(vec2(in_Position.x, 1.0f-in_Position.y/(675.0/1200.0))-0.5);
 
 
   gl_Position = vec4(p.x, p.y, -1, 1.0f);

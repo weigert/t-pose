@@ -448,7 +448,7 @@ Matrix3f Camera(){
   float Px = 0.0014;    //Size of Pixel [mm]
   float Pn = 4032;      //Number of Pixels (Width)
 
-  float fx = 1.2f;//5.0f*Fx / Px / Pn; //Dimensionless Focal Length
+  float fx = 100.0f;//5.0f*Fx / Px / Pn; //Dimensionless Focal Length
 
   cout<<"FOCAL LENGTH: "<<fx<<endl;
 
@@ -456,8 +456,8 @@ Matrix3f Camera(){
   // and the width of the image is normalized to equal 1
 
   MatrixXf K = MatrixXf(3, 3);
-  K <<  fx, 0.0, -0.5,
-        0, fx, -0.5,
+  K <<  1.2, 0.0, 0.5,
+        0, 1.2, 0.28125,
         0, 0, 1;
   return K;
 
@@ -505,6 +505,14 @@ Vector4f HDLT(MatrixXf PA, MatrixXf PB, Vector3f A, Vector3f B){
   JacobiSVD<MatrixXf> HS(H, ComputeFullV);
   return HS.matrixV().col(3);
 
+}
+
+Matrix3f skew(Vector3f a){
+  Matrix3f A;
+  A << 0, -a(2), a(1),
+      a(2), 0, -a(0),
+      -a(1), a(0), 0;
+      return A;
 }
 
 // Wrapper
@@ -627,85 +635,34 @@ vec4 triangulate(MatrixXf F, vec2& A, vec2& B, int k = 0){
   cout<<"Smallest Error: ("<<minind<<") "<<minerr<<endl;
   double t = R[minind];
 
-  // Evaluate the Lines
+  // Compute Approximate Points
 
   Vector3f LA, LB;
+  Vector3f XA, XB;
+
   LA << t*m, 1, -t;
   LB << -n*(c*t+d), a*t+b, c*t+d;
-
-
-  // Compute Approximate Points
-  Vector3f XA, XB;
 
   XA << -LA(0)*LA(2), -LA(1)*LA(2), LA(0)*LA(0) + LA(1)*LA(1);
   XB << -LB(0)*LB(2), -LB(1)*LB(2), LB(0)*LB(0) + LB(1)*LB(1);
 
-  XA /= XA(2);
-  XB /= XB(2);
-
-//  cout<<XA<<endl;
-//  cout<<XB<<endl;
-
   // Transform Back
-
-//  cout<<XA<<endl;
-//  cout<<XB.transpose()*dF*XA<<endl;
-
-
 
   XA = TA.inverse()*RA.transpose()*XA;
   XB = TB.inverse()*RB.transpose()*XB;
 
-
-
-  // Matched Points
-
-  Vector3f xA, xB;
-  xA << A.x, A.y, 1;
-  xB << B.x, B.y, 1;
-
-  xA /= xA(2);
-  xB /= xB(2);
-
-  //cout<<"NEAREST POINTS:"<<endl;
-  //cout<<xA<<endl;
-  //cout<<XA<<endl;
-  //cout<<xB<<endl;
-  //cout<<XB<<endl;
-
-
-
-  cout<<"ERR: "<<XB.transpose()*F*XA<<endl;
-  cout<<"pA: "<<1200*(xA - XA)(0)<<" "<<1200*(xA - XA)(1)<<endl;
-  cout<<"pA: "<<675*(xB - XB)(0)<<" "<<675*(xB - XB)(1)<<endl;
-
-  //cout<<XB.transpose()*dF*XA<<endl;
-
-
-
-
-
-
-
-
-
-
+  XA /= XA(2);
+  XB /= XB(2);
 
   // Shift the Point to the Projection Estimate
 
-//  A = vec2(XA(0), XA(1));
-//  B = vec2(XB(0), XB(1));
+  A = vec2(XA(0), XA(1));
+  B = vec2(XB(0), XB(1));
 
   // Compute the Essential Matrix
 
   Matrix3f K = Camera();
   Matrix3f E = K.transpose()*F*K;
-
-  Pose P = GetPose(E);
-  //cout<<P.R1<<endl;
-  //cout<<P.t<<endl;
-
-  // Triangulate the Points
 
   MatrixXf PA = MatrixXf::Zero(3, 4);
   MatrixXf PB = MatrixXf::Zero(3, 4);
@@ -713,6 +670,8 @@ vec4 triangulate(MatrixXf F, vec2& A, vec2& B, int k = 0){
   PA << 1, 0, 0, 0,
         0, 1, 0, 0,
         0, 0, 1, 0;
+
+  Pose P = GetPose(E);
 
   if(k == 0){
     PB << P.R1(0,0),  P.R1(0,1),  P.R1(0,2), P.t(0),
@@ -733,14 +692,16 @@ vec4 triangulate(MatrixXf F, vec2& A, vec2& B, int k = 0){
     PB << P.R2(0,0),  P.R2(0,1),  P.R2(0,2), -P.t(0),
           P.R2(1,0),  P.R2(1,1),  P.R2(1,2), -P.t(1),
           P.R2(2,0),  P.R2(2,1),  P.R2(2,2), -P.t(2);
-
   }
 
-  Vector4f UNPROJECT = HDLT(PA, PB, XA, XB);
+  Vector4f UNPROJECT = HDLT(K*PA, K*PB, XA, XB);
   UNPROJECT /= UNPROJECT(3);
+  cout<<"UNPROJECT: "<<endl;
   cout<<UNPROJECT<<endl;
 
+  //if( (K*PA*UNPROJECT)(2) > 0 && (K*PB*UNPROJECT)(2) > 0 )
   return vec4(UNPROJECT(0), UNPROJECT(1), UNPROJECT(2), UNPROJECT(3));
+  //else return vec4(0);
 
 }
 
@@ -784,8 +745,8 @@ bool read(string file, vector<vec2>& A, vector<vec2>& B){
 
     int m = sscanf(pstring.c_str(), "%f %f %f %f", &pA.x, &pA.y, &pB.x, &pB.y);
     if(m == 4){
-      A.push_back(pA/vec2(1200, 675));
-      B.push_back(pB/vec2(1200, 675));
+      A.push_back(pA/vec2(1200, 1200));
+      B.push_back(pB/vec2(1200, 1200));
     }
 
   }

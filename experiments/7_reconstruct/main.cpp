@@ -1,7 +1,7 @@
 #include <TinyEngine/TinyEngine>
 #include <TinyEngine/image>
 #include <TinyEngine/color>
-#include "camera.h"
+#include <TinyEngine/camera>
 
 #include "reconstruct.h"
 
@@ -21,7 +21,7 @@ int main( int argc, char* args[] ) {
 	// COMPUTE THE RECONSTRUCTION
 
 	srand(time(NULL));
-	//Matrix3f F = FundamentalRANSAC(A, B);
+	//Matrix3f F = FundamentalSAMPSON(A, B);
 
 	// Try the OpenCV Method:
 
@@ -42,6 +42,8 @@ int main( int argc, char* args[] ) {
 
 	Matrix3f F;
 	cv2eigen(cvF, F);
+
+	
 
 
 
@@ -81,11 +83,9 @@ int main( int argc, char* args[] ) {
 
 	Tiny::view.pointSize = 5.0f;
 	Tiny::window("Point-Match Reconstruction, Nicholas Mcdonald 2022", 1200, 675);
-	Tiny::view.interface = [&](){
+	Tiny::view.interface = [&](){};
 
-
-
-	};
+	glDisable(GL_DEPTH_TEST);
 
 	// Image Rendering
 
@@ -103,9 +103,8 @@ int main( int argc, char* args[] ) {
 	cam::far = 100.0f;                          //Projection Matrix Far-Clip
 	cam::near = 0.001f;
 	cam::moverate = 0.05f;
-	cam::pos = vec3(0);
-	cam::look = vec3(0,0,1);
 	cam::init();
+	cam::update();
 
 	Buffer pbufA(A);
 	Buffer pbufB(B);
@@ -180,12 +179,14 @@ int main( int argc, char* args[] ) {
 
 		if(!view3d){
 
+
 			image.use();														//Use Effect Shader
 			image.texture("imageTextureA", texA);		//Load Texture
 			image.texture("imageTextureB", texB);		//Load Texture
 			image.uniform("flip", flip);
 			image.uniform("model", flat.model);		//Add Model Matrix
 			flat.render();
+
 
 			if(flip) {
 
