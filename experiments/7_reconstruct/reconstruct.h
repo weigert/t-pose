@@ -440,9 +440,76 @@ vector<double> realroots(vector<double> a, vector<double> b){
 
 }
 
+// Compute the Pose Matrices
+
+Matrix3f Camera(){
+
+  float Fx = 4.2;       //Focal Length [mm]
+  float Px = 0.0014;    //Size of Pixel [mm]
+  float Pn = 4032;      //Number of Pixels (Width)
+
+  float fx = 1.2f;//5.0f*Fx / Px / Pn; //Dimensionless Focal Length
+
+  cout<<"FOCAL LENGTH: "<<fx<<endl;
+
+  // Note: Dimensionless means points are centered on image origin,
+  // and the width of the image is normalized to equal 1
+
+  MatrixXf K = MatrixXf(3, 3);
+  K <<  fx, 0.0, -0.5,
+        0, fx, -0.5,
+        0, 0, 1;
+  return K;
+
+}
+
+// Pose Matrix
+
+struct Pose {
+  Matrix3f R1;
+  Matrix3f R2;
+  Vector3f t;
+};
+
+Pose GetPose( Matrix3f Essential ){
+
+  Matrix3f W;
+  W <<  0,-1, 0,
+        1, 0, 0,
+        0, 0, 1;
+
+  JacobiSVD<Matrix3f> ES(Essential, ComputeFullU | ComputeFullV);
+  Matrix3f U = ES.matrixU();
+  Matrix3f V = ES.matrixV();
+
+  // Guess for t: Note that sign is not determined
+  // Guess for R: One of the two is not valid!
+
+  Pose pose;
+  pose.t = U.col(2);
+  pose.R1 = U*W*V.transpose();
+  pose.R2 = U*W.transpose()*V.transpose();
+  return pose;
+
+};
+
+// Homogeneous DLT
+
+Vector4f HDLT(MatrixXf PA, MatrixXf PB, Vector3f A, Vector3f B){
+
+  MatrixXf H(4, 4);
+  H.row(0) = A(0)*PA.row(2) - PA.row(0);
+  H.row(1) = A(1)*PA.row(2) - PA.row(1);
+  H.row(2) = B(0)*PB.row(2) - PB.row(0);
+  H.row(3) = B(1)*PB.row(2) - PB.row(1);
+  JacobiSVD<MatrixXf> HS(H, ComputeFullV);
+  return HS.matrixV().col(3);
+
+}
+
 // Wrapper
 
-void triangulate(MatrixXf F, vec2& A, vec2& B){
+vec4 triangulate(MatrixXf F, vec2& A, vec2& B, int k = 0){
 
   // Matrices to Transform to Center
 
@@ -585,7 +652,6 @@ void triangulate(MatrixXf F, vec2& A, vec2& B){
 //  cout<<XB.transpose()*dF*XA<<endl;
 
 
-  //cout<<XB.transpose()*dF*XA<<endl;
 
   XA = TA.inverse()*RA.transpose()*XA;
   XB = TB.inverse()*RB.transpose()*XB;
@@ -607,15 +673,74 @@ void triangulate(MatrixXf F, vec2& A, vec2& B){
   //cout<<xB<<endl;
   //cout<<XB<<endl;
 
-  cout<<(xA - XA)<<endl;
-  cout<<(xB - XB)<<endl;
+
+
+  cout<<"ERR: "<<XB.transpose()*F*XA<<endl;
+  cout<<"pA: "<<1200*(xA - XA)(0)<<" "<<1200*(xA - XA)(1)<<endl;
+  cout<<"pA: "<<675*(xB - XB)(0)<<" "<<675*(xB - XB)(1)<<endl;
 
   //cout<<XB.transpose()*dF*XA<<endl;
 
+
+
+
+
+
+
+
+
+
+
   // Shift the Point to the Projection Estimate
 
-  A = vec2(XA(0), XA(1));
-  B = vec2(XB(0), XB(1));
+//  A = vec2(XA(0), XA(1));
+//  B = vec2(XB(0), XB(1));
+
+  // Compute the Essential Matrix
+
+  Matrix3f K = Camera();
+  Matrix3f E = K.transpose()*F*K;
+
+  Pose P = GetPose(E);
+  //cout<<P.R1<<endl;
+  //cout<<P.t<<endl;
+
+  // Triangulate the Points
+
+  MatrixXf PA = MatrixXf::Zero(3, 4);
+  MatrixXf PB = MatrixXf::Zero(3, 4);
+
+  PA << 1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0;
+
+  if(k == 0){
+    PB << P.R1(0,0),  P.R1(0,1),  P.R1(0,2), P.t(0),
+          P.R1(1,0),  P.R1(1,1),  P.R1(1,2), P.t(1),
+          P.R1(2,0),  P.R1(2,1),  P.R1(2,2), P.t(2);
+  }
+  if(k == 1){
+    PB << P.R1(0,0),  P.R1(0,1),  P.R1(0,2), -P.t(0),
+          P.R1(1,0),  P.R1(1,1),  P.R1(1,2), -P.t(1),
+          P.R1(2,0),  P.R1(2,1),  P.R1(2,2), -P.t(2);
+  }
+  if(k == 2){
+    PB << P.R2(0,0),  P.R2(0,1),  P.R2(0,2), P.t(0),
+          P.R2(1,0),  P.R2(1,1),  P.R2(1,2), P.t(1),
+          P.R2(2,0),  P.R2(2,1),  P.R2(2,2), P.t(2);
+  }
+  if(k == 3){
+    PB << P.R2(0,0),  P.R2(0,1),  P.R2(0,2), -P.t(0),
+          P.R2(1,0),  P.R2(1,1),  P.R2(1,2), -P.t(1),
+          P.R2(2,0),  P.R2(2,1),  P.R2(2,2), -P.t(2);
+
+  }
+
+  Vector4f UNPROJECT = HDLT(PA, PB, XA, XB);
+  UNPROJECT /= UNPROJECT(3);
+  cout<<UNPROJECT<<endl;
+
+  return vec4(UNPROJECT(0), UNPROJECT(1), UNPROJECT(2), UNPROJECT(3));
 
 }
 

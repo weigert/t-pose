@@ -1,6 +1,7 @@
 #include <TinyEngine/TinyEngine>
 #include <TinyEngine/image>
 #include <TinyEngine/color>
+#include "camera.h"
 
 #include "reconstruct.h"
 
@@ -26,6 +27,7 @@ int main( int argc, char* args[] ) {
 
 
 
+
 	vector<cv::Point2f> pointsA, pointsB;
 	for(auto& a: A){
 		pointsA.emplace_back(a.x, a.y);
@@ -41,12 +43,25 @@ int main( int argc, char* args[] ) {
 	Matrix3f F;
 	cv2eigen(cvF, F);
 
+
+
 //	Matrix3f F = Fundamental(A, B);
 
 	cout<<"Fundamental Matrix F: "<<F<<endl;
 
+	vector<vec4> points3d;
+
 	for(size_t i = 0; i < A.size(); i++)
-		triangulate(F, A[i], B[i]);
+		points3d.push_back(triangulate(F, A[i], B[i], 0));
+
+	for(size_t i = 0; i < A.size(); i++)
+		points3d.push_back(triangulate(F, A[i], B[i], 1));
+
+	for(size_t i = 0; i < A.size(); i++)
+		points3d.push_back(triangulate(F, A[i], B[i], 2));
+
+	for(size_t i = 0; i < A.size(); i++)
+		points3d.push_back(triangulate(F, A[i], B[i], 3));
 
 	// Question: How do I compute / visualize epipoles?
 
@@ -59,12 +74,18 @@ int main( int argc, char* args[] ) {
 	for(size_t i = 0; i < B.size(); i++)
 		lB.push_back(EpipolarLine(F, A[i]));
 
+	cout<<A.size()<<endl;
+
 	//A.push_back(Epipole(F, true));
 	//B.push_back(Epipole(F, false));
 
 	Tiny::view.pointSize = 5.0f;
 	Tiny::window("Point-Match Reconstruction, Nicholas Mcdonald 2022", 1200, 675);
-	Tiny::view.interface = [](){};
+	Tiny::view.interface = [&](){
+
+
+
+	};
 
 	// Image Rendering
 
@@ -77,6 +98,14 @@ int main( int argc, char* args[] ) {
 	// Feature Point / Line Rendering
 
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
+	Shader point3d({"shader/point3d.vs", "shader/point3d.fs"}, {"in_Position"});
+
+	cam::far = 100.0f;                          //Projection Matrix Far-Clip
+	cam::near = 0.001f;
+	cam::moverate = 0.05f;
+	cam::pos = vec3(0);
+	cam::look = vec3(0,0,1);
+	cam::init();
 
 	Buffer pbufA(A);
 	Buffer pbufB(B);
@@ -88,6 +117,12 @@ int main( int argc, char* args[] ) {
 	Model pmeshB({"in_Position"});
 	pmeshB.bind<vec2>("in_Position", &pbufB);
 	pmeshB.SIZE = B.size();
+
+	Buffer pbuf3D(points3d);
+	Model pmesh3D({"in_Position"});
+	pmesh3D.bind<vec4>("in_Position", &pbuf3D);
+	pmesh3D.SIZE = points3d.size();
+
 
 	vector<vec2> linevec;
 	for(size_t n = 0; n < A.size(); n++){
@@ -118,9 +153,14 @@ int main( int argc, char* args[] ) {
 	// The triangulation needs to be
 
 	bool flip = true;
+	bool view3d = false;
 	Tiny::event.handler = [&](){
+		cam::handler();
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_SPACE)
 			flip = !flip;
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_m)
+			view3d = !view3d;
+
 	};
 
 /*
@@ -138,40 +178,52 @@ int main( int argc, char* args[] ) {
 
 		Tiny::view.target(color::black);				//Target Main Screen
 
-		image.use();														//Use Effect Shader
-		image.texture("imageTextureA", texA);		//Load Texture
-		image.texture("imageTextureB", texB);		//Load Texture
-		image.uniform("flip", flip);
-		image.uniform("model", flat.model);		//Add Model Matrix
-		flat.render();
+		if(!view3d){
 
-		if(flip) {
+			image.use();														//Use Effect Shader
+			image.texture("imageTextureA", texA);		//Load Texture
+			image.texture("imageTextureB", texB);		//Load Texture
+			image.uniform("flip", flip);
+			image.uniform("model", flat.model);		//Add Model Matrix
+			flat.render();
+
+			if(flip) {
+
+				point.use();
+				point.uniform("color", vec3(1,0,0));
+				pmeshA.render(GL_POINTS);
+
+				epipolarline.use();
+				epipolarline.uniform("color", vec3(1,0,0));
+				lmeshA.render(GL_POINTS);
+
+			}
+
+			else {
+
+				point.use();
+				point.uniform("color", vec3(1,0,1));
+				pmeshB.render(GL_POINTS);
+
+				epipolarline.use();
+				epipolarline.uniform("color", vec3(1,0,1));
+				lmeshB.render(GL_POINTS);
+
+			}
 
 			point.use();
-			point.uniform("color", vec3(1,0,0));
-			pmeshA.render(GL_POINTS);
-
-			epipolarline.use();
-			epipolarline.uniform("color", vec3(1,0,0));
-			lmeshA.render(GL_POINTS);
+			point.uniform("color", vec3(1,1,1));
+			linemesh.render(GL_LINES);
 
 		}
 
-		else {
+		else{
 
-			point.use();
-			point.uniform("color", vec3(1,0,1));
-			pmeshB.render(GL_POINTS);
-
-			epipolarline.use();
-			epipolarline.uniform("color", vec3(1,0,1));
-			lmeshB.render(GL_POINTS);
+			point3d.use();
+			point3d.uniform("vp", cam::vp);
+			pmesh3D.render(GL_POINTS);
 
 		}
-
-		point.use();
-		point.uniform("color", vec3(1,1,1));
-		linemesh.render(GL_LINES);
 
 	};
 
