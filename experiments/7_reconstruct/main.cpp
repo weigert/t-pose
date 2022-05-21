@@ -4,6 +4,9 @@
 
 #include "reconstruct.h"
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
+
 int main( int argc, char* args[] ) {
 
 	vector<vec2> A;
@@ -17,14 +20,33 @@ int main( int argc, char* args[] ) {
 	// COMPUTE THE RECONSTRUCTION
 
 	srand(time(NULL));
-	Matrix3f F = FundamentalRANSAC(A, B);
-	//Matrix3f F = Fundamental(A, B);
+	//Matrix3f F = FundamentalRANSAC(A, B);
+
+	// Try the OpenCV Method:
+
+
+
+	vector<cv::Point2f> pointsA, pointsB;
+	for(auto& a: A){
+		pointsA.emplace_back(a.x, a.y);
+	}
+
+	for(auto& b: B){
+		pointsB.emplace_back(b.x, b.y);
+	}
+
+	//cv::Mat cvF = cv::findFundamentalMat(pointsA, pointsB, cv::FM_RANSAC, 0.0025, 0.99);
+	cv::Mat cvF = cv::findFundamentalMat(pointsA, pointsB, cv::FM_LMEDS, 0.0025, 0.99);
+
+	Matrix3f F;
+	cv2eigen(cvF, F);
+
+//	Matrix3f F = Fundamental(A, B);
 
 	cout<<"Fundamental Matrix F: "<<F<<endl;
 
-	for(size_t i = 0; i < A.size(); i++){
+	for(size_t i = 0; i < A.size(); i++)
 		triangulate(F, A[i], B[i]);
-	}
 
 	// Question: How do I compute / visualize epipoles?
 
@@ -147,8 +169,9 @@ int main( int argc, char* args[] ) {
 
 		}
 
-	//	point.uniform("color", vec3(1,1,1));
-	//	linemesh.render(GL_LINES);
+		point.use();
+		point.uniform("color", vec3(1,1,1));
+		linemesh.render(GL_LINES);
 
 	};
 

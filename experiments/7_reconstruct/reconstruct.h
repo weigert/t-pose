@@ -263,7 +263,7 @@ Matrix3f FundamentalRANSAC( vector<vec2>& pA, vector<vec2>& pB ){
   MatrixXf F; //Best Guess
   int maxinliers = 0;
 
-  for(size_t i = 0; i < 15000; i++){
+  for(size_t i = 0; i < 10000; i++){
 
     vector<vec2> poA;
     vector<vec2> poB;
@@ -442,7 +442,7 @@ vector<double> realroots(vector<double> a, vector<double> b){
 
 // Wrapper
 
-void triangulate(MatrixXf F, vec2 A, vec2 B){
+void triangulate(MatrixXf F, vec2& A, vec2& B){
 
   // Matrices to Transform to Center
 
@@ -458,7 +458,7 @@ void triangulate(MatrixXf F, vec2 A, vec2 B){
 
   // Shift F
 
-  MatrixXf dF = TB.transpose() * F * TA;
+  MatrixXf dF = TB.transpose().inverse() * F * TA.inverse();
 
   // Compute Left and Right Epipoles, Normalize
 
@@ -585,6 +585,8 @@ void triangulate(MatrixXf F, vec2 A, vec2 B){
 //  cout<<XB.transpose()*dF*XA<<endl;
 
 
+  //cout<<XB.transpose()*dF*XA<<endl;
+
   XA = TA.inverse()*RA.transpose()*XA;
   XB = TB.inverse()*RB.transpose()*XB;
 
@@ -600,17 +602,20 @@ void triangulate(MatrixXf F, vec2 A, vec2 B){
   xB /= xB(2);
 
   //cout<<"NEAREST POINTS:"<<endl;
-//  cout<<xA<<endl;
-//  cout<<XA<<endl;
-//  cout<<xB<<endl;
-//  cout<<XB<<endl;
+  //cout<<xA<<endl;
+  //cout<<XA<<endl;
+  //cout<<xB<<endl;
+  //cout<<XB<<endl;
 
-  cout<<(xA - XA).norm()<<endl;
-  cout<<(xB - XB).norm()<<endl;
+  cout<<(xA - XA)<<endl;
+  cout<<(xB - XB)<<endl;
 
   //cout<<XB.transpose()*dF*XA<<endl;
 
+  // Shift the Point to the Projection Estimate
 
+  A = vec2(XA(0), XA(1));
+  B = vec2(XB(0), XB(1));
 
 }
 
