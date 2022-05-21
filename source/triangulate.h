@@ -1,5 +1,7 @@
-#ifndef TRIANGULATION
-#define TRIANGULATION
+#ifndef TPOSE_TRIANGULATE
+#define TPOSE_TRIANGULATE
+
+// triangulate.h
 
 #include <fstream>
 #include "include/delaunator-cpp/delaunator-header-only.hpp"
@@ -451,7 +453,7 @@ bool triangulation::split( int ta ){
 	NT += 2;
 	NP += 1;
 
-	cout<<"SPLIT"<<endl;
+	cout<<"SPLIT "<<ta<<endl;
 	return true;
 
 }
@@ -680,11 +682,13 @@ Buffer* trianglebuf;
 Buffer* pointbuf;
 Buffer* tcolaccbuf;
 Buffer* tcolnumbuf;
-Buffer* tenergybuf;
+Buffer* tenergybuf;	//Triangle Surface Energy
+Buffer* penergybuf;	//Vertex Tension Energy
 Buffer* pgradbuf;
 Buffer* tnringbuf;
 
-int* err;
+int* terr;
+int* perr;
 int* cn;
 glm::ivec4* col;
 
@@ -695,10 +699,12 @@ void init(){
 	tcolaccbuf 	= new Buffer( tri::triangulation::MAXT, (glm::ivec4*)NULL );		// Raw Color
 	tcolnumbuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Triangle Size (Pixels)
 	tenergybuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Triangle Energy
+	penergybuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Vertex Energy
 	pgradbuf 		= new Buffer( tri::triangulation::MAXT, (glm::ivec2*)NULL );
 	tnringbuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );
 
-	err = new int[tri::triangulation::MAXT];
+	terr = new int[tri::triangulation::MAXT];
+	perr = new int[tri::triangulation::MAXT];
 	cn 	= new int[tri::triangulation::MAXT];
 	col = new glm::ivec4[tri::triangulation::MAXT];
 
@@ -706,7 +712,8 @@ void init(){
 
 void quit(){
 
-	delete[] err;
+	delete[] terr;
+	delete[] perr;
 	delete[] cn;
 
 	delete trianglebuf;
@@ -749,10 +756,14 @@ float geterr( tri::triangulation* tr ){
 	newerr = 0.0f;
 
 	for(size_t i = 0; i < tr->NT; i++){
-	//	if(cn[i] == 0) continue;
-		newerr += err[i];
-		if(sqrt(err[i]) >= maxerr)
-			maxerr = sqrt(err[i]);
+		float err = 0.0f;
+		err += terr[i];
+		err += perr[tr->triangles[i].x];
+		err += perr[tr->triangles[i].y];
+		err += perr[tr->triangles[i].z];
+		if(sqrt(err) >= maxerr)
+			maxerr = sqrt(err);
+		newerr += err;
 	}
 
 	relerr = (toterr - newerr)/toterr;
@@ -769,8 +780,13 @@ int maxerrid( tri::triangulation* tr ){
 	for(size_t i = 0; i < tr->NT; i++){
 		if(cn[i] == 0) continue;
 		if(cn[i] <= 50) continue;
-		if(sqrt(err[i]) > maxerr){
-			maxerr = sqrt(err[i]);
+		float err = 0.0f;
+		err += terr[i];
+		err += perr[tr->triangles[i].x];
+		err += perr[tr->triangles[i].y];
+		err += perr[tr->triangles[i].z];
+		if(sqrt(err) > maxerr){
+			maxerr = sqrt(err);
 			tta = i;
 		}
 	}

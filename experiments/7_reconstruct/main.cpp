@@ -3,91 +3,45 @@
 #include <TinyEngine/color>
 #include <TinyEngine/camera>
 
-#include "reconstruct.h"
+#include "../../source/io.h"
+#include "../../source/unproject.h"
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/eigen.hpp>
+using namespace std;
+using namespace glm;
+using namespace Eigen;
 
 int main( int argc, char* args[] ) {
 
-	vector<vec2> A;
-	vector<vec2> B;
-	if(!read("data.txt", A, B)){
+	// Load Raw Pointmatches
+
+	vector<vec2> A, B;
+	if(!io::readmatches("data.txt", A, B))
 		exit(0);
-	}
 
-	cout<<"Loaded "<<A.size()<<" points."<<endl;
+	cout << "Loaded " << A.size() << " point matches" << endl;
 
-	// COMPUTE THE RECONSTRUCTION
+	// Unproject the 2D Matches to 3D Points
 
-	srand(time(NULL));
-	Matrix3f F = FundamentalSAMPSON(A, B);
+	// Fundamental Matrix
 
-	// Try the OpenCV Method:
+	Matrix3f F = unp::F_Sampson(A, B);
+	Matrix3f K = unp::Camera();
 
-	/*
+	// Triangulate all Points
 
+	vector<vec4> points3d = unp::triangulate(F, K, A, B);
 
-	vector<cv::Point2f> pointsA, pointsB;
-	for(auto& a: A){
-		pointsA.emplace_back(a.x, a.y);
-	}
-
-	for(auto& b: B){
-		pointsB.emplace_back(b.x, b.y);
-	}
-
-	//cv::Mat cvF = cv::findFundamentalMat(pointsA, pointsB, cv::FM_RANSAC, 0.0025, 0.99);
-	cv::Mat cvF = cv::findFundamentalMat(pointsA, pointsB, cv::FM_LMEDS, 0.0025, 0.99);
-
-	Matrix3f F;
-	cv2eigen(cvF, F);
-
-	*/
-
-
-
-
-
-//	Matrix3f F = Fundamental(A, B);
-
-	cout<<"Fundamental Matrix F: "<<F<<endl;
-
-	vector<vec4> points3d;
+	vector<vec3> lA, lB; //Epipolar Lines
 
 	for(size_t i = 0; i < A.size(); i++)
-		points3d.push_back(triangulate(F, A[i], B[i], 0));
-
-	for(size_t i = 0; i < A.size(); i++)
-		points3d.push_back(triangulate(F, A[i], B[i], 1));
-
-	for(size_t i = 0; i < A.size(); i++)
-		points3d.push_back(triangulate(F, A[i], B[i], 2));
-
-	for(size_t i = 0; i < A.size(); i++)
-		points3d.push_back(triangulate(F, A[i], B[i], 3));
-
-	// Question: How do I compute / visualize epipoles?
-
-	vector<vec3> lA; //Epipolar Lines corresponding to points A
-	vector<vec3> lB; //Epipolar Lines corresponding to points B
-
-	for(size_t i = 0; i < A.size(); i++)
-		lA.push_back(EpipolarLine(F.transpose(), B[i]));
+		lA.push_back(unp::eline(B[i], F));
 
 	for(size_t i = 0; i < B.size(); i++)
-		lB.push_back(EpipolarLine(F, A[i]));
-
-	cout<<A.size()<<endl;
-
-	//A.push_back(Epipole(F, true));
-	//B.push_back(Epipole(F, false));
+		lB.push_back(unp::eline(F, A[i]));
 
 	Tiny::view.pointSize = 5.0f;
 	Tiny::window("Point-Match Reconstruction, Nicholas Mcdonald 2022", 1200, 675);
 	Tiny::view.interface = [&](){};
-
-	glDisable(GL_DEPTH_TEST);
 
 	// Image Rendering
 
@@ -105,8 +59,9 @@ int main( int argc, char* args[] ) {
 	cam::far = 100.0f;                          //Projection Matrix Far-Clip
 	cam::near = 0.001f;
 	cam::moverate = 0.05f;
+	cam::FOV = 0.5;
 	cam::init();
-	cam::look = vec3(0);
+	cam::look = vec3(0,0,7);
 	cam::update();
 
 	Buffer pbufA(A);
@@ -124,7 +79,6 @@ int main( int argc, char* args[] ) {
 	Model pmesh3D({"in_Position"});
 	pmesh3D.bind<vec4>("in_Position", &pbuf3D);
 	pmesh3D.SIZE = points3d.size();
-
 
 	vector<vec2> linevec;
 	for(size_t n = 0; n < A.size(); n++){
@@ -157,7 +111,9 @@ int main( int argc, char* args[] ) {
 	bool flip = true;
 	bool view3d = false;
 	Tiny::event.handler = [&](){
+
 		cam::handler();
+
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_SPACE)
 			flip = !flip;
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_m)
@@ -165,23 +121,11 @@ int main( int argc, char* args[] ) {
 
 	};
 
-/*
-	Tiny::view.target(color::black);				//Target Main Screen
-
-	image.use();														//Use Effect Shader
-	image.texture("imageTextureA", texA);		//Load Texture
-	image.texture("imageTextureB", texB);		//Load Texture
-	image.uniform("flip", flip);
-	image.uniform("model", flat.model);		//Add Model Matrix
-	flat.render();
-*/
-
 	Tiny::view.pipeline = [&](){
 
 		Tiny::view.target(color::black);				//Target Main Screen
 
 		if(!view3d){
-
 
 			image.use();														//Use Effect Shader
 			image.texture("imageTextureA", texA);		//Load Texture
@@ -232,46 +176,7 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	Tiny::loop([&](){
-
-		/*
-
-		vector<vec2> AA, BB;
-
-		for(size_t j = 0; j < 130; j++){
-			AA.push_back(A[rand()%A.size()]);
-			BB.push_back(B[rand()%B.size()]);
-		}
-
-		F = Fundamental(AA, BB);
-
-		vector<vec3> lA; //Epipolar Lines corresponding to points A
-		vector<vec3> lB; //Epipolar Lines corresponding to points B
-
-		for(size_t i = 0; i < AA.size(); i++)
-			lA.push_back(EpipolarLine(F.transpose(), BB[i]));
-
-		for(size_t i = 0; i < BB.size(); i++)
-			lB.push_back(EpipolarLine(F, AA[i]));
-
-		AA.clear();
-		BB.clear();
-		AA.push_back(Epipole(F, true));
-		BB.push_back(Epipole(F, false));
-
-		pbufA.fill(AA);
-		pbufB.fill(BB);
-
-		lbufA.fill(lA);
-		lbufB.fill(lB);
-
-		usleep(50000);
-
-		*/
-
-
-
-	});
+	Tiny::loop([&](){});
 	Tiny::quit();
 
 	return 0;
