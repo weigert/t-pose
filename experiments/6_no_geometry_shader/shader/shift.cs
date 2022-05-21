@@ -6,7 +6,7 @@ layout (std430, binding = 0) buffer points {
   vec2 p[];
 };
 
-layout (std430, binding = 5) buffer gradient {
+layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
 

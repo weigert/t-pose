@@ -12,6 +12,7 @@ layout (std430, binding = 4) buffer gradient {
 
 uniform int NPoints;
 uniform int mode;
+uniform float RATIO;
 
 void main(){
 
@@ -25,8 +26,8 @@ void main(){
 
   p[index] -= 0.0001 * vec2(gr[index]) / 256 / 256;
 
-  if(p[index].x < -12.0/8.0) p[index].x = -12.0/8.0;
-  if(p[index].x > 12.0/8.0) p[index].x = 12.0/8.0;
+  if(p[index].x < -RATIO) p[index].x = -RATIO;
+  if(p[index].x > RATIO) p[index].x = RATIO;
   if(p[index].y < -1) p[index].y = -1;
   if(p[index].y > 1) p[index].y = 1;
 

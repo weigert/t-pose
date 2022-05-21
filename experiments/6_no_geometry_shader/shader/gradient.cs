@@ -6,11 +6,11 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
-layout (std430, binding = 4) buffer energy {
+layout (std430, binding = 4) buffer tenergy {
   int en[];
 };
 
-layout (std430, binding = 5) buffer gradient {
+layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
 

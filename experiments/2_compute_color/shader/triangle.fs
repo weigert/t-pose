@@ -10,7 +10,6 @@ layout (std430, binding = 2) buffer colnum {
 
 uniform sampler2D imageTexture;
 
-in vec3 ex_Color;
 in vec2 ex_Position;
 flat in int ex_Index;
 

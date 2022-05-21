@@ -712,16 +712,19 @@ void init(){
 
 void quit(){
 
-	delete[] terr;
-	delete[] perr;
-	delete[] cn;
-
-	delete trianglebuf;
 	delete pointbuf;
+	delete trianglebuf;
 	delete tcolaccbuf;
 	delete tcolnumbuf;
 	delete tenergybuf;
+	delete penergybuf;
 	delete pgradbuf;
+	delete tnringbuf;
+
+	delete[] terr;
+	delete[] perr;
+	delete[] cn;
+	delete[] col;
 
 }
 

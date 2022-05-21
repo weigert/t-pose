@@ -39,12 +39,13 @@ int main( int argc, char* args[] ) {
 
 	tri::init();
 
-	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "energy", "gradient", "nring"});
+	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "colnum", "tenergy", "penergy", "gradient", "nring"});
 	triangleshader.bind<vec2>("points", tri::pointbuf);
 	triangleshader.bind<ivec4>("index", tri::trianglebuf);
 	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
 	triangleshader.bind<int>("colnum", tri::tcolnumbuf);
-	triangleshader.bind<int>("energy", tri::tenergybuf);
+	triangleshader.bind<int>("tenergy", tri::tenergybuf);
+	triangleshader.bind<int>("penergy", tri::penergybuf);
 	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
 	triangleshader.bind<int>("nring", tri::tnringbuf);
 
@@ -54,17 +55,16 @@ int main( int argc, char* args[] ) {
 
 	// SSBO Manipulation Compute Shaders (Reset / Average)
 
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "energy", "gradient", "nring"});
+	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "tenergy", "penergy" "gradient", "nring"});
 	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
 	reset.bind<int>("colnum", tri::tcolnumbuf);
-	reset.bind<int>("energy", tri::tenergybuf);
-	reset.bind<ivec2>("gradient", tri::pgradbuf);
+	reset.bind<int>("tenergy", tri::tenergybuf);
+	reset.bind<int>("penergy", tri::penergybuf);
 	reset.bind<int>("nring", tri::tnringbuf);
 
-	Compute average({"shader/average.cs"}, {"colacc", "colnum", "energy"});
+	Compute average({"shader/average.cs"}, {"colacc", "colnum"});
 	average.bind<ivec4>("colacc", tri::tcolaccbuf);
 	average.bind<int>("colnum", tri::tcolnumbuf);
-	average.bind<int>("energy", tri::tenergybuf);
 
 	Compute gradient({"shader/gradient.cs"}, {"index", "energy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
@@ -78,7 +78,7 @@ int main( int argc, char* args[] ) {
 	// Triangulation and Models
 
 	tri::triangulation tr;
-	tri::upload(&tr);
+	tri::upload(&tr, false);
 
 	cout<<"Number of Triangles: "<<tr.NT<<endl;
 
@@ -188,7 +188,8 @@ int main( int argc, char* args[] ) {
 
 		// Retrieve Data from Compute Shader
 
-		tri::tenergybuf->retrieve((13*tr.NT), tri::err);
+		tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+		tri::penergybuf->retrieve((13*tr.NT), tri::perr);
 		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
 		tri::pointbuf->retrieve(tr.points);
 
@@ -200,17 +201,8 @@ int main( int argc, char* args[] ) {
 
 			int tta = tri::maxerrid(&tr);
 			if(tta >= 0)
-			if(tr.split(tta)){
-
+			if(tr.split(tta))
 				updated = true;
-
-				// Necessary if we split more than one guy
-
-				//upload();
-				//computecolors( false );
-				//doenergy( false );
-
-			}
 
 		}
 
@@ -218,13 +210,7 @@ int main( int argc, char* args[] ) {
 			updated = true;
 
 		if(updated)
-			tri::upload(&tr);
-
-		if(tr.NT > 100){
-			cout<<tri::toterr<<endl;
-		//	cout<<"PAUSED"<<endl;
-			paused = true;
-		}
+			tri::upload(&tr, false);
 
 	});
 

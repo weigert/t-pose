@@ -2,8 +2,8 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-#include "delaunator-cpp/delaunator-header-only.hpp"
-#include "poisson.h"
+#include "../../source/include/delaunator-cpp/delaunator-header-only.hpp"
+#include "../../source/include/poisson.h"
 #include "triangulate.h"
 
 int main( int argc, char* args[] ) {
@@ -14,7 +14,7 @@ int main( int argc, char* args[] ) {
 	Tiny::event.handler = [](){};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("canyon.png"));		//Load Texture with Image
+	Texture tex(image::load("../../resource/canyon.png"));		//Load Texture with Image
 	Square2D flat;														//Create Primitive Model
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});

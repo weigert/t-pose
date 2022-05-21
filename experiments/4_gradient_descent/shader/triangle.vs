@@ -14,13 +14,15 @@ out VS_OUT {
 
 } vs_out;
 
+uniform float RATIO;
+
 void main() {
 
   vec2 tpos = vec2(0);
   if (in_Position.x > 0) tpos = p[in_Index.x];
   if (in_Position.y > 0) tpos = p[in_Index.y];
   if (in_Position.z > 0) tpos = p[in_Index.z];
-  tpos.x /= 1200.0f/800.0f;
+  tpos.x /= RATIO;
 
   vs_out.position = tpos;
   vs_out.index = gl_InstanceID;

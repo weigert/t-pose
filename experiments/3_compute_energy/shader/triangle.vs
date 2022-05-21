@@ -9,6 +9,8 @@ layout (std430, binding = 0) buffer points {
   vec2 p[];
 };
 
+uniform float RATIO;
+
 out vec3 ex_Color;
 out vec2 ex_Position;
 
@@ -25,7 +27,7 @@ void main() {
   if (in_Position.x > 0) tpos = p[in_Index.x];
   if (in_Position.y > 0) tpos = p[in_Index.y];
   if (in_Position.z > 0) tpos = p[in_Index.z];
-  tpos.x /= 1200.0f/800.0f;
+  tpos.x /= RATIO;
 
   ex_Position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
   gl_Position = vec4(tpos, -1, 1.0f);

@@ -2,9 +2,10 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-const float RATIO = 12.0f/8.0f;
-
 #include "../../source/triangulate.h"
+
+using namespace std;
+using namespace glm;
 
 int main( int argc, char* args[] ) {
 
@@ -16,6 +17,8 @@ int main( int argc, char* args[] ) {
 	Tiny::event.handler = [](){};
 	Tiny::view.interface = [](){};
 
+	tri::RATIO = 1.2/0.8;
+
 	Texture tex(image::load("../../resource/canyon.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
@@ -25,56 +28,46 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initialize( 1024 );
-	cout<<"Number of Triangles: "<<trianglebuf->SIZE<<endl;
+	tri::init();
+	tri::triangulation tr(1024);
+	cout<<"Number of Triangles: "<<tr.NT<<endl;
+	tri::upload(&tr, false);
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
-	triangleinstance.bind<ivec4>("in_Index", trianglebuf);
+	triangleinstance.bind<ivec4>("in_Index", tri::trianglebuf);
 
 	Shader triangleshader({"shader/triangle.vs", "shader/triangle.gs", "shader/triangle.fs"}, {"in_Position", "in_Index"}, {"points", "colacc", "colnum", "energy"});
-	triangleshader.bind<vec2>("points", pointbuf);
-
-	Model pointmesh({"in_Position"});
-	pointmesh.bind<vec2>("in_Position", pointbuf);
-	pointmesh.SIZE = pointbuf->SIZE;
-
-	int NPoints = pointbuf->SIZE;
-	int NTriangles = (1+12)*trianglebuf->SIZE;
-	int KTriangles = trianglebuf->SIZE;
-
-	// Color Accumulation Buffers
-
-	Buffer tcolaccbuf( NTriangles, (ivec4*)NULL );		// Raw Color
-	Buffer tcolnumbuf( NTriangles, (int*)NULL );			// Triangle Size (Pixels)
-	Buffer tenergybuf( NTriangles, (int*)NULL );			// Triangle Energy
-	Buffer pgradbuf( NPoints, (ivec2*)NULL );
-
-	triangleshader.bind<ivec4>("colacc", &tcolaccbuf);
-	triangleshader.bind<int>("colnum", &tcolnumbuf);
-	triangleshader.bind<int>("energy", &tenergybuf);
+	triangleshader.bind<vec2>("points", tri::pointbuf);
+	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
+	triangleshader.bind<int>("colnum", tri::tcolnumbuf);
+	triangleshader.bind<int>("energy", tri::tenergybuf);
 
 	// SSBO Manipulation Compute Shaders (Reset / Average)
 
 	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "energy", "gradient"});
-	reset.bind<ivec4>("colacc", &tcolaccbuf);
-	reset.bind<int>("colnum", &tcolnumbuf);
-	reset.bind<int>("energy", &tenergybuf);
-	reset.bind<ivec2>("gradient", &pgradbuf);
+	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
+	reset.bind<int>("colnum", tri::tcolnumbuf);
+	reset.bind<int>("energy", tri::tenergybuf);
+	reset.bind<ivec2>("gradient", tri::pgradbuf);
 
 	Compute average({"shader/average.cs"}, {"colacc", "colnum", "energy"});
-	average.bind<ivec4>("colacc", &tcolaccbuf);
-	average.bind<int>("colnum", &tcolnumbuf);
-	average.bind<int>("energy", &tenergybuf);
+	average.bind<ivec4>("colacc", tri::tcolaccbuf);
+	average.bind<int>("colnum", tri::tcolnumbuf);
+	average.bind<int>("energy", tri::tenergybuf);
 
 	Compute gradient({"shader/gradient.cs"}, {"energy", "gradient", "indices"});
-	gradient.bind<int>("energy", &tenergybuf);
-	gradient.bind<ivec2>("gradient", &pgradbuf);
-	gradient.bind<ivec4>("indices", trianglebuf);
+	gradient.bind<int>("energy", tri::tenergybuf);
+	gradient.bind<ivec2>("gradient", tri::pgradbuf);
+	gradient.bind<ivec4>("indices", tri::trianglebuf);
 
 	Compute shift({"shader/shift.cs"}, {"points", "gradient"});
-	shift.bind<ivec4>("points", pointbuf);
-	shift.bind<ivec2>("gradient", &pgradbuf);
+	shift.bind<ivec4>("points", tri::pointbuf);
+	shift.bind<ivec2>("gradient", tri::pgradbuf);
+
+	Model pointmesh({"in_Position"});
+	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
+	pointmesh.SIZE = tr.NP;
 
 	Tiny::view.pipeline = [&](){
 
@@ -90,11 +83,11 @@ int main( int argc, char* args[] ) {
 		// Reset Accumulation Buffers
 
 		reset.use();
-		reset.uniform("NTriangles", NTriangles);
-		reset.uniform("NPoints", NPoints);
+		reset.uniform("NTriangles", (13*tr.NT));
+		reset.uniform("NPoints", tr.NP);
 
-		if(NTriangles > NPoints) reset.dispatch(1 + NTriangles/1024);
-		else reset.dispatch(1 + NPoints/1024);
+		if((13*tr.NT) > tr.NP) reset.dispatch(1 + (13*tr.NT)/1024);
+		else reset.dispatch(1 + tr.NP/1024);
 
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -103,15 +96,16 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 0);
-		triangleshader.uniform("KTriangles", KTriangles);
-		triangleinstance.render(GL_TRIANGLE_STRIP);
+		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
 		// Average Accmulation Buffers, Compute Color!
 
 		average.use();
-		average.uniform("NTriangles", NTriangles);
+		average.uniform("NTriangles", (13*tr.NT));
 		average.uniform("mode", 0);
-		average.dispatch(1 + NTriangles/1024);
+		average.dispatch(1 + (13*tr.NT)/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		// Compute the Cost for every Triangle
@@ -119,31 +113,25 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 1);
-		triangleshader.uniform("KTriangles", KTriangles);
-		triangleinstance.render(GL_TRIANGLE_STRIP);
-
-		// Average the Energy
-
-		average.use();
-		average.uniform("NTriangles", NTriangles);
-		average.uniform("mode", 1);
-		average.dispatch(1 + NTriangles/1024);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
 
 		// Compute the Gradients (One per Triangle)
 
 		gradient.use();
-		gradient.uniform("K", KTriangles);
+		gradient.uniform("K", tr.NT);
 		gradient.uniform("mode", 0);
-		gradient.dispatch(1 + KTriangles/1024);
+		gradient.dispatch(1 + tr.NT/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		// Shift the Points
 
 		shift.use();
-		shift.uniform("NPoints", NPoints);
+		shift.uniform("NPoints", tr.NP);
 		shift.uniform("mode", 0);
-		shift.dispatch(1 + NPoints/1024);
+		shift.uniform("RATIO", tri::RATIO);
+		shift.dispatch(1 + tr.NP/1024);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		// Render Points
@@ -151,20 +139,19 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 3);
-		triangleshader.uniform("K", KTriangles);
-		triangleinstance.render(GL_TRIANGLE_STRIP);
+		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
 		point.use();
+		point.uniform("RATIO", tri::RATIO);
 		pointmesh.render(GL_POINTS);
 
 	};
 
-	int n = 0;
+	Tiny::loop([&](){});
 
-	Tiny::loop([&](){
-		cout<<n++<<endl;
-	});
-
+	tri::quit();
 	Tiny::quit();
 
 	return 0;

@@ -96,7 +96,3 @@ void main() {
   EndPrimitive();
 
 }
-
-/*
-
-*/
