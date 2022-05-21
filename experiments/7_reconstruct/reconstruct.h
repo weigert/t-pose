@@ -656,8 +656,8 @@ vec4 triangulate(MatrixXf F, vec2& A, vec2& B, int k = 0){
 
   // Shift the Point to the Projection Estimate
 
-  A = vec2(XA(0), XA(1));
-  B = vec2(XB(0), XB(1));
+  //A = vec2(XA(0), XA(1));
+  //B = vec2(XB(0), XB(1));
 
   // Compute the Essential Matrix
 
@@ -699,9 +699,9 @@ vec4 triangulate(MatrixXf F, vec2& A, vec2& B, int k = 0){
   cout<<"UNPROJECT: "<<endl;
   cout<<UNPROJECT<<endl;
 
-  //if( (K*PA*UNPROJECT)(2) > 0 && (K*PB*UNPROJECT)(2) > 0 )
+  if( (PA*UNPROJECT)(2) > 0 && (PB*UNPROJECT)(2) < 0 )
   return vec4(UNPROJECT(0), UNPROJECT(1), UNPROJECT(2), UNPROJECT(3));
-  //else return vec4(0);
+  else return vec4(0);
 
 }
 

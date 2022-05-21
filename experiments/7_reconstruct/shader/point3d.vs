@@ -2,6 +2,7 @@
 
 in vec4 in_Position;
 uniform mat4 vp;
+uniform mat4 model;
 
 void main(){
 
@@ -16,5 +17,5 @@ void main(){
   //p = 2*(vec2(in_Position.x, 1.0f-in_Position.y/(675.0/1200.0))-0.5);
 
 
-  gl_Position = vp*p;
+  gl_Position = vp*model*p;
 }

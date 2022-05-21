@@ -21,11 +21,11 @@ int main( int argc, char* args[] ) {
 	// COMPUTE THE RECONSTRUCTION
 
 	srand(time(NULL));
-	//Matrix3f F = FundamentalSAMPSON(A, B);
+	Matrix3f F = FundamentalSAMPSON(A, B);
 
 	// Try the OpenCV Method:
 
-
+	/*
 
 
 	vector<cv::Point2f> pointsA, pointsB;
@@ -43,7 +43,9 @@ int main( int argc, char* args[] ) {
 	Matrix3f F;
 	cv2eigen(cvF, F);
 
-	
+	*/
+
+
 
 
 
@@ -104,6 +106,7 @@ int main( int argc, char* args[] ) {
 	cam::near = 0.001f;
 	cam::moverate = 0.05f;
 	cam::init();
+	cam::look = vec3(0);
 	cam::update();
 
 	Buffer pbufA(A);
@@ -221,6 +224,7 @@ int main( int argc, char* args[] ) {
 		else{
 
 			point3d.use();
+			point3d.uniform("model", rotate(mat4(1.0f), 3.14159265f, vec3(0,0,1)));
 			point3d.uniform("vp", cam::vp);
 			pmesh3D.render(GL_POINTS);
 
