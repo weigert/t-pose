@@ -17,12 +17,14 @@ int main( int argc, char* args[] ) {
 	// COMPUTE THE RECONSTRUCTION
 
 	srand(time(NULL));
-	Matrix3f F = FundamentalSAMPSON(A, B);
+	Matrix3f F = FundamentalRANSAC(A, B);
 	//Matrix3f F = Fundamental(A, B);
 
 	cout<<"Fundamental Matrix F: "<<F<<endl;
 
-	triangulate(F, A[0], B[0]);
+	for(size_t i = 0; i < A.size(); i++){
+		triangulate(F, A[i], B[i]);
+	}
 
 	// Question: How do I compute / visualize epipoles?
 
