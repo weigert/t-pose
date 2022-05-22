@@ -40,11 +40,46 @@ bool readmatches(string file, vector<vec2>& A, vector<vec2>& B){
 
     int m = sscanf(pstring.c_str(), "%f %f %f %f", &pA.x, &pA.y, &pB.x, &pB.y);
     if(m == 4){
-      A.push_back(pA/vec2(1200, 1200));
-      B.push_back(pB/vec2(1200, 1200));
+      A.push_back(pA);
+      B.push_back(pB);
     }
 
   }
+
+  return true;
+
+}
+
+/*
+================================================================================
+                                Data Writing
+================================================================================
+*/
+
+bool writeenergy( tri::triangulation* tr, string file ){
+
+  cout<<"Exporting Energy to "<<file<<endl;
+  ofstream out(file, ios::out);
+  if(!out.is_open()){
+    cout<<"Failed to open file "<<file<<endl;
+    return false;
+  }
+
+  // Export Triangle Energy
+
+  out<<"TENERGY"<<endl;
+  for(size_t i = 0; i < tr->NT; i++)
+    out<<tri::terr[i]<<endl;
+
+  out<<"PENERGY"<<endl;
+  for(size_t i = 0; i < tr->NP; i++)
+    out<<tri::perr[i]<<endl;
+
+  out<<"CN"<<endl;
+  for(size_t i = 0; i < tr->NT; i++)
+    out<<tri::cn[i]<<endl;
+
+  out.close();
 
   return true;
 

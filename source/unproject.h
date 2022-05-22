@@ -38,8 +38,8 @@ Matrix3f Camera(){
   // and the width of the image is normalized to equal 1
 
   MatrixXf K = MatrixXf(3, 3);
-  K <<  1.2, 0.0, 0.5,
-        0, 1.2, 0.28125,
+  K <<  1.0/fx, 0.0, 0.5,
+        0, 1.0/fx, 0.28125,
         0, 0, 1;
   return K;
 
@@ -443,6 +443,10 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
 
   Pose P = GetPose(E);
 
+  cout<<P.R1<<endl;
+  cout<<P.R2<<endl;
+  cout<<P.t<<endl;
+
   function<bool(int)> check = [&](int k){
 
     if(k == 0){
@@ -473,32 +477,34 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
     Vector4f X = HDLT(K*PA, K*PB, XA, XB);
     X /= X(3);
 
-    if( (PA*X)(2) > 0 && (PB*X)(2) < 0 ) return true;
+    cout<<k<<" "<<K*PA*X<<endl;
+    cout<<k<<" "<<K*PB*X<<endl;
+
+    if( (PA*X)(2) > 0 && (PB*X)(2) > 0 ) return true;
+
+
     return false;
 
   };
 
-  if(!check(0)){
-    if(!check(1)){
-      if(!check(2)){
-        if(!check(3));
-      }
-    }
-  }
+//  for(int b = 0; b < 4; b++){
 
-  for(size_t n = 0; n < N; n++){
+  check(1);
+    //if(check(b))
+    for(size_t n = 0; n < N; n++){
 
-    Vector3f XA, XB;
-    XA << A[n].x, A[n].y, 1;
-    XB << B[n].x, B[n].y, 1;
+      Vector3f XA, XB;
+      XA << A[n].x, A[n].y, 1;
+      XB << B[n].x, B[n].y, 1;
 
-    Vector4f X = HDLT(K*PA, K*PB, XA, XB);
-    X /= X(3);
+      Vector4f X = HDLT(K*PA, K*PB, XA, XB);
+      X /= X(3);
 
-    if( (PA*X)(2) > 0 && (PB*X)(2) < 0 )
       points.push_back(vec4(X(0), X(1), X(2), X(3)));
 
-  }
+    }
+
+  //}
 
   return points;
 

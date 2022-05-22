@@ -20,11 +20,21 @@ int main( int argc, char* args[] ) {
 
 	cout << "Loaded " << A.size() << " point matches" << endl;
 
+	// Normalize points to Image Width
+
+	for(auto& a: A)
+		a /= vec2(1200);
+
+	for(auto& b: B)
+		b /= vec2(1200);
+
 	// Unproject the 2D Matches to 3D Points
 
 	// Fundamental Matrix
 
-	Matrix3f F = unp::F_Sampson(A, B);
+	Matrix3f F = unp::F_LMEDS(A, B);
+	cout<<"FUNDAMENTAL MATRIX: "<<F<<endl;
+
 	Matrix3f K = unp::Camera();
 
 	// Triangulate all Points

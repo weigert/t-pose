@@ -115,7 +115,7 @@ void main() {
       atomicAdd(pen[ind[TMOD].y], int(lambda*0.5/3.0*dot(wvb, wvb))/nr[TMOD]);
     }
 
-    if (in_Position.y > 0){
+    if (in_Position.z > 0){
 
       vec2 wva = p[ind[TMOD].z] - p[ind[TMOD].x]; //Distance from this Vertex to Prev
       vec2 wvb = p[ind[TMOD].z] - p[ind[TMOD].y]; //Distance from this Vertex to Next

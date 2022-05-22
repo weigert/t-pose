@@ -51,7 +51,7 @@ void main(){
 
   if( mode == 2 ){
 
-    /*
+
     float TEN = sqrt(float(ten[vs_out.index])/cn[vs_out.index])/255.0f;
     float PEN = 0.0f;
     PEN += pen[ind[vs_out.index].x]/100;
@@ -61,12 +61,12 @@ void main(){
     if(PEN == 0) fragColor = vec4(0,1,0,1);
     if(TEN == 0) fragColor = vec4(1,0,1,1);
 
-    if(abs(TEN) < abs(PEN/1000000)) fragColor = vec4(1,0,0,1);
+    if(abs(TEN) < abs(PEN/2000000)) fragColor = vec4(1,0,0,1);
     else fragColor = vec4(0,0,1,1);
-    */
+
 
   //  fragColor = mix(vec4(0,0.5,1,1), vec4(1,0.5,0,1), );
-    fragColor = vec4(vec3(ca[vs_out.index].rgb)/255, 1);
+    //fragColor = vec4(vec3(ca[vs_out.index].rgb)/255, 1);
 
   }
 

@@ -41,7 +41,7 @@ struct triangulation {
 
 	triangulation( string filename ){
 
-		read(filename);
+		read(filename, false);
 
 	}
 
@@ -95,7 +95,7 @@ struct triangulation {
 
 	// IO Functions
 
-	void read( string file );
+	void read( string file, bool warp );
 	void write( string file );
 
 };
@@ -565,7 +565,7 @@ void triangulation::write( string file ){
 
 // Import a Triangulation
 
-void triangulation::read( string file ){
+void triangulation::read( string file, bool warp = true ){
 
 	cout<<"Importing from file "<<file<<endl;
 	ifstream in(file, ios::in);
@@ -602,7 +602,7 @@ void triangulation::read( string file ){
 
 	// Check for Warping
 
-	if(!triangles.empty())
+	if(!triangles.empty() && warp)
 	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
 
 		if(boundary(npoints[i]))
@@ -761,9 +761,9 @@ float geterr( tri::triangulation* tr ){
 	for(size_t i = 0; i < tr->NT; i++){
 		float err = 0.0f;
 		err += terr[i];
-		err += perr[tr->triangles[i].x];
-		err += perr[tr->triangles[i].y];
-		err += perr[tr->triangles[i].z];
+	//	err += perr[tr->triangles[i].x];
+	//	err += perr[tr->triangles[i].y];
+	//	err += perr[tr->triangles[i].z];
 		if(sqrt(err) >= maxerr)
 			maxerr = sqrt(err);
 		newerr += err;

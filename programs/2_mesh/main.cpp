@@ -150,6 +150,9 @@ int main( int argc, char* args[] ) {
 
 	}
 
+
+
+
 	// Prune Bad Triangles
 
 	for(size_t i = 0; i < trA.triangles.size(); i++){
@@ -163,29 +166,34 @@ int main( int argc, char* args[] ) {
 		cout<<_TEN<<" "<<_PEN<<endl;
 
     if(_PEN == 0) continue;
-    else if(abs(_TEN) < abs(_PEN/500000.0)){
+    else if(abs(_TEN) < abs(_PEN/2000000.0)){
 			trA.triangles.erase(trA.triangles.begin()+i);
 			trA.colors.erase(trA.colors.begin()+i);
+			trB.triangles.erase(trB.triangles.begin()+i);
+			trB.colors.erase(trB.colors.begin()+i);
 			cout<<"ERASED "<<i<<endl;
-			i--;
 			//prune
 		}
 
 	}
 
 	tri::upload(&trA);
-//	tri::trianglebuf->fill(trA.triangles);
 
+
+//	tri::trianglebuf->fill(trA.triangles);
 
 
 
 	// Fill the Point3D Buf
 
 	Matrix3f K = unp::Camera();
+//	Matrix3f F = unp::F_LMEDS()
+
 	Matrix3f F;
 	F << -0.936791,      2.24,  -26.1548,
   1.03284,   1.77101,  -13.5179,
   26.3407,   10.5485,         1;
+
 
 	// Normalize these Data-Points
 

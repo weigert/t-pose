@@ -192,7 +192,7 @@ int main( int argc, char* args[] ) {
 		tn.x = (e.y*( e.y*n.x - e.x*n.y) - e.x*e.z)/(e.x*e.x + e.y*e.y);
 		tn.y = (e.x*(-e.y*n.x + e.x*n.y) - e.y*e.z)/(e.x*e.x + e.y*e.y);
 		n = tn;
-		
+
 		cout<<"DOT "<<dot(vec3(n.x, n.y, 1), vec3(e.x, e.y, e.z))<<endl;
 
 		// Map Back
@@ -204,7 +204,7 @@ int main( int argc, char* args[] ) {
 	//	n.y = -n.y/(675.0f*0.5f)-1.0f;
 	//	n.x = (n.x/(1200.0f*0.5f)-1.0f)*(12.0/6.75);
 
-		tr.points[i] = n;
+		//tr.points[i] = n;
 
 	}
 	tri::pointbuf->fill(tr.points);

@@ -43,11 +43,47 @@ uniform int mode;
 
 
 vec3 transform(vec2 tpos){
-  vec3 ntpos = vec3(tpos, 1);
-  ntpos.x = 0.5f*(ntpos.x / (12.0/6.75) + 1.0f)*1200;
-  ntpos.y = 0.5f*(-ntpos.y + 1.0f)*675;
-  ntpos.xy /= vec2(1200);
-  return ntpos;
+  vec2 n = tpos;
+  n.x = 0.5f*( n.x * ( 6.75 / 12.0 ) + 1.0f);
+  n.y = 0.5f*(-n.y * ( 6.75 / 12.0 ) + ( 6.75 / 12.0 ) ) ;
+  return vec3(n.x, n.y, 1);
+}
+
+float dist2nearest(vec2 tpos, vec4 e){
+  vec3 n = transform(tpos);
+  vec2 tn;
+  tn.x = (e.y*( e.y*n.x - e.x*n.y) - e.x*e.z)/(e.x*e.x + e.y*e.y);
+  tn.y = (e.x*(-e.y*n.x + e.x*n.y) - e.y*e.z)/(e.x*e.x + e.y*e.y);
+  n.xy = tn;
+  return abs(sqrt(0.5f*dot(n, e.xyz)));
+}
+
+vec2 grad2nearest(vec2 tpos, vec4 e){
+
+  vec2 n = tpos;
+
+  mat3 T = transpose(mat3(
+    0.5, 0, 0.5f,
+    0, -0.5f*( 6.75 / 12.0 ),  0.5f*( 6.75 / 12.0 ),
+    0, 0, 1
+  ));
+
+  mat3 TI = inverse(T);
+
+  n = (T*vec3(n, 1)).xy;
+
+  // Nearest Point
+
+  vec2 tn;
+  tn.x = (e.y*( e.y*n.x - e.x*n.y) - e.x*e.z)/(e.x*e.x + e.y*e.y);
+  tn.y = (e.x*(-e.y*n.x + e.x*n.y) - e.y*e.z)/(e.x*e.x + e.y*e.y);
+  n.xy = tn;
+
+  // Map Point Back
+
+  n = (TI*vec3(n, 1)).xy;
+  return (tpos-n);
+
 }
 
 
@@ -103,8 +139,8 @@ void main() {
 
   if( TDIV == 0 && mode == 1 ) {
 
-    const float lambda = 0*256*256;
-    const float gamma = 0*256*256;
+    const float lambda = 2000*256*256;
+    const float gamma = 1000*256*256;
 
     if (in_Position.x > 0){
 
@@ -122,10 +158,17 @@ void main() {
 
       // Epipolar Line Distance Cost Gradient
 
-      atomicAdd(pen[ind[TMOD].x], int(gamma*abs(dot(transform(tpos), el[ind[TMOD].x].xyz))));
+    //  atomicAdd(pen[ind[TMOD].x], int(gamma*abs(dot(transform(tpos), el[ind[TMOD].x].xyz))));
 
-      atomicAdd(gr[ind[TMOD].x].x, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(dp, 0)), el[ind[TMOD].x].xyz)) - abs(dot(transform(tpos-vec2(dp, 0)), el[ind[TMOD].x].xyz)))));
-      atomicAdd(gr[ind[TMOD].x].y, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(0, dp)), el[ind[TMOD].x].xyz)) - abs(dot(transform(tpos-vec2(0, dp)), el[ind[TMOD].x].xyz)))));
+    //  atomicAdd(gr[ind[TMOD].x].x, int(gamma*3.0*( dist2nearest(tpos+vec2(dp, 0), el[ind[TMOD].x]) - dist2nearest(tpos-vec2(dp, 0), el[ind[TMOD].x]) )));
+    //  atomicAdd(gr[ind[TMOD].x].y, int(gamma*3.0*( dist2nearest(tpos+vec2(0, dp), el[ind[TMOD].x]) - dist2nearest(tpos-vec2(0, dp), el[ind[TMOD].x]) )));
+
+      vec2 ngrad = grad2nearest(tpos, el[ind[TMOD].x]);
+      atomicAdd(gr[ind[TMOD].x].x, int(gamma*3.0*ngrad.x));
+      atomicAdd(gr[ind[TMOD].x].y, int(gamma*3.0*ngrad.y));
+
+  //    atomicAdd(gr[ind[TMOD].x].x, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(dp, 0)), el[ind[TMOD].x].xyz)) - abs(dot(transform(tpos-vec2(dp, 0)), el[ind[TMOD].x].xyz)))));
+  //    atomicAdd(gr[ind[TMOD].x].y, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(0, dp)), el[ind[TMOD].x].xyz)) - abs(dot(transform(tpos-vec2(0, dp)), el[ind[TMOD].x].xyz)))));
 
     }
 
@@ -142,10 +185,17 @@ void main() {
       atomicAdd(pen[ind[TMOD].y], int(lambda*0.5/3.0*dot(wva, wva))/nr[TMOD]);
       atomicAdd(pen[ind[TMOD].y], int(lambda*0.5/3.0*dot(wvb, wvb))/nr[TMOD]);
 
-      atomicAdd(pen[ind[TMOD].y], int(abs(dot(transform(tpos), el[ind[TMOD].y].xyz))*gamma));
+    //  atomicAdd(pen[ind[TMOD].y], int(abs(dot(transform(tpos), el[ind[TMOD].y].xyz))*gamma));
 
-      atomicAdd(gr[ind[TMOD].y].x, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(dp, 0)), el[ind[TMOD].y].xyz)) - abs(dot(transform(tpos-vec2(dp, 0)), el[ind[TMOD].y].xyz)))));
-      atomicAdd(gr[ind[TMOD].y].y, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(0, dp)), el[ind[TMOD].y].xyz)) - abs(dot(transform(tpos-vec2(0, dp)), el[ind[TMOD].y].xyz)))));
+    //  atomicAdd(gr[ind[TMOD].y].x, int(gamma*3.0*( dist2nearest(tpos+vec2(dp, 0), el[ind[TMOD].y]) - dist2nearest(tpos-vec2(dp, 0), el[ind[TMOD].y]) )));
+    //  atomicAdd(gr[ind[TMOD].y].y, int(gamma*3.0*( dist2nearest(tpos+vec2(0, dp), el[ind[TMOD].y]) - dist2nearest(tpos-vec2(0, dp), el[ind[TMOD].y]) )));
+
+    vec2 ngrad = grad2nearest(tpos, el[ind[TMOD].y]);
+    atomicAdd(gr[ind[TMOD].y].x, int(gamma*3.0*ngrad.x));
+    atomicAdd(gr[ind[TMOD].y].y, int(gamma*3.0*ngrad.y));
+
+  //    atomicAdd(gr[ind[TMOD].y].x, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(dp, 0)), el[ind[TMOD].y].xyz)) - abs(dot(transform(tpos-vec2(dp, 0)), el[ind[TMOD].y].xyz)))));
+  //    atomicAdd(gr[ind[TMOD].y].y, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(0, dp)), el[ind[TMOD].y].xyz)) - abs(dot(transform(tpos-vec2(0, dp)), el[ind[TMOD].y].xyz)))));
 
     }
 
@@ -162,10 +212,17 @@ void main() {
       atomicAdd(pen[ind[TMOD].z], int(lambda*0.5/3.0*dot(wva, wva))/nr[TMOD]);
       atomicAdd(pen[ind[TMOD].z], int(lambda*0.5/3.0*dot(wvb, wvb))/nr[TMOD]);
 
-      atomicAdd(pen[ind[TMOD].z], int(abs(dot(transform(tpos), el[ind[TMOD].z].xyz))*gamma));
+    //  atomicAdd(pen[ind[TMOD].z], int(abs(dot(transform(tpos), el[ind[TMOD].z].xyz))*gamma));
 
-      atomicAdd(gr[ind[TMOD].z].x, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(dp, 0)), el[ind[TMOD].z].xyz)) - abs(dot(transform(tpos-vec2(dp, 0)), el[ind[TMOD].z].xyz)))));
-      atomicAdd(gr[ind[TMOD].z].y, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(0, dp)), el[ind[TMOD].z].xyz)) - abs(dot(transform(tpos-vec2(0, dp)), el[ind[TMOD].z].xyz)))));
+    //  atomicAdd(gr[ind[TMOD].z].x, int(gamma*3.0*( dist2nearest(tpos+vec2(dp, 0), el[ind[TMOD].z]) - dist2nearest(tpos-vec2(dp, 0), el[ind[TMOD].z]) )));
+    //  atomicAdd(gr[ind[TMOD].z].y, int(gamma*3.0*( dist2nearest(tpos+vec2(0, dp), el[ind[TMOD].z]) - dist2nearest(tpos-vec2(0, dp), el[ind[TMOD].z]) )));
+
+      vec2 ngrad = grad2nearest(tpos, el[ind[TMOD].z]);
+      atomicAdd(gr[ind[TMOD].z].x, int(gamma*3.0*ngrad.x));
+      atomicAdd(gr[ind[TMOD].z].y, int(gamma*3.0*ngrad.y));
+
+  ///    atomicAdd(gr[ind[TMOD].z].x, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(dp, 0)), el[ind[TMOD].z].xyz)) - abs(dot(transform(tpos-vec2(dp, 0)), el[ind[TMOD].z].xyz)))));
+//      atomicAdd(gr[ind[TMOD].z].y, int(gamma*0.5/3.0*(abs(dot(transform(tpos+vec2(0, dp)), el[ind[TMOD].z].xyz)) - abs(dot(transform(tpos-vec2(0, dp)), el[ind[TMOD].z].xyz)))));
 
     }
 
