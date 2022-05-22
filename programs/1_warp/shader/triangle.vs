@@ -85,7 +85,7 @@ void main() {
 
   if( TDIV == 0 && mode == 1 ) {
 
-    const float lambda = 1000*256*256;
+    const float lambda = 2000*256*256;
 
     if (in_Position.x > 0){
 

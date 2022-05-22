@@ -1,8 +1,12 @@
 #version 460 core
 
-in vec2 in_Position;
+in vec4 in_Position;
 uniform float RATIO;
+uniform mat4 vp;
+uniform mat4 model;
 
 void main(){
-  gl_Position = vec4(in_Position/vec2(RATIO, 1), -1.0f, 1.0f);
+  vec4 p = in_Position;
+  p.xy /= vec2(RATIO, 1);
+  gl_Position = vp*model*p;
 }

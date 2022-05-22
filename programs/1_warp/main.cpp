@@ -192,6 +192,7 @@ int main( int argc, char* args[] ) {
 
 	auto draw = [&](){
 
+		/*
 		reset.use();
 		reset.uniform("NTriangles", 13*tr.NT);
 		reset.uniform("NPoints", tr.NP);
@@ -200,6 +201,7 @@ int main( int argc, char* args[] ) {
 		else reset.dispatch(1 + tr.NP/1024);
 
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		*/
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
@@ -245,6 +247,9 @@ int main( int argc, char* args[] ) {
 		tri::penergybuf->retrieve(tr.NP, tri::perr);
 		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
 		tri::pointbuf->retrieve(tr.points);
+
+		cout<<tri::perr[0]<<endl;
+		cout<<tri::terr[0]<<endl;
 
 	//	if(donext){
 		if( tri::geterr(&tr) < 1E-6 ){
