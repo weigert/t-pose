@@ -4,10 +4,27 @@
 
 #include "../../source/triangulate.h"
 
+#include <boost/filesystem.hpp>
+
 using namespace std;
 using namespace glm;
 
 int main( int argc, char* args[] ) {
+
+	if(argc < 2){
+		cout<<"Please specify an output folder."<<endl;
+		exit(0);
+	}
+	else{
+
+		string outfolder = args[1];
+		// make the directory...
+		boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
+
+	}
+
+	string outfolder = args[1];
+
 
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
@@ -151,7 +168,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 2);
-		triangleshader.uniform("K", tr.NT);
+		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
@@ -235,7 +252,7 @@ int main( int argc, char* args[] ) {
 
 			if(tr.NT >= exportlist.back()){
 				tri::tcolaccbuf->retrieve(tr.NT, &tr.colors[0]);
-				tr.write(to_string(exportlist.back())+".tri");
+				tr.write("../../output/"+outfolder+"/"+to_string(exportlist.back())+".tri");
 				exportlist.pop_back();
 			}
 

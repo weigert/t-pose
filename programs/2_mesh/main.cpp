@@ -2,37 +2,34 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-//const float RATIO = 6.0f/9.0f;
-float RATIO = 12.0f/6.75f;
+#include "../../source/triangulate.h"
 
-#include "triangulate.h"
+using namespace glm;
+using namespace std;
 
 int main( int argc, char* args[] ) {
 
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
-//	Tiny::benchmark = true;
 
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
+
+	tri::RATIO = 12.0/6.75;
 
 	bool paused = true;
 	bool showlines = false;
 
-	vector<vec2> otherpoints;
-
+	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
 			paused = !paused;
 
-		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n){
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
 			showlines = !showlines;
 
-		}
-
 	};
-	Tiny::view.interface = [](){};
 
 	Texture tex(image::load("../../resource/imageA.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
@@ -43,38 +40,40 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	initbufs();
-	read("2000.tri");
-	otherpoints = points;
-	read("out.tri");
+	tri::init();
 
-	Buffer otherpointbuf(otherpoints);
+	Buffer otherpointbuf;
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
-	triangleinstance.SIZE = KTriangles;
 
 	TLineStrip tlinestrip;
 	Instance linestripinstance(&tlinestrip);
-	linestripinstance.SIZE = KTriangles;
 
 	Shader triangleshader({"shader/triangle.vs", "shader/triangle.fs"}, {"in_Position"}, {"points", "index", "colacc", "otherpoints"});
-	triangleshader.bind<vec2>("points", pointbuf);
-	triangleshader.bind<ivec4>("index", trianglebuf);
+	triangleshader.bind<vec2>("points", tri::pointbuf);
+	triangleshader.bind<ivec4>("index", tri::trianglebuf);
 	triangleshader.bind<vec2>("otherpoints", &otherpointbuf);
 
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index", "otherpoints"});
-	linestrip.bind<vec2>("points", pointbuf);
-	linestrip.bind<ivec4>("index", trianglebuf);
+	linestrip.bind<vec2>("points", tri::pointbuf);
+	linestrip.bind<ivec4>("index", tri::trianglebuf);
 	linestrip.bind<vec2>("otherpoints", &otherpointbuf);
 
 	Model pointmesh({"in_Position"});
-	pointmesh.bind<vec2>("in_Position", pointbuf);
-	pointmesh.SIZE = NPoints;
+	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
+
+	tri::triangulation trA, trB;
+	trA.read("2000.tri", false);
+	trB.read("out.tri", false);
+
+	tri::upload(&trB);
+	otherpointbuf.fill(trA.points);
+	pointmesh.SIZE = trA.NP;
 
 	// Color Accumulation Buffers
 
-	triangleshader.bind<ivec4>("colacc", tcolaccbuf);
+	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
 
 	float s = 0.0f;
 
@@ -83,20 +82,20 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 2);
-		triangleshader.uniform("K", KTriangles);
+		triangleshader.uniform("K", trA.NT);
 		triangleshader.uniform("s", s);
-		triangleshader.uniform("RATIO", RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, KTriangles);
+		triangleshader.uniform("RATIO", tri::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
 
 	//	point.use();
-	//	point.uniform("RATIO", RATIO);
+	//	point.uniform("RATIO", tri::RATIO);
 	//	pointmesh.render(GL_POINTS);
 
 		if(showlines){
 			linestrip.use();
-			linestrip.uniform("RATIO", RATIO);
+			linestrip.uniform("RATIO", tri::RATIO);
 			linestrip.uniform("s", s);
-			linestripinstance.render(GL_LINE_STRIP, KTriangles);
+			linestripinstance.render(GL_LINE_STRIP, trA.NT);
 		}
 
 	};
@@ -106,9 +105,9 @@ int main( int argc, char* args[] ) {
 	triangleshader.use();
 	triangleshader.texture("imageTexture", tex);
 	triangleshader.uniform("mode", 1);
-	triangleshader.uniform("KTriangles", KTriangles);
-	triangleshader.uniform("RATIO", RATIO);
-	triangleinstance.render(GL_TRIANGLE_STRIP, NTriangles);
+	triangleshader.uniform("KTriangles", trA.NT);
+	triangleshader.uniform("RATIO", tri::RATIO);
+	triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
 
 	Tiny::view.pipeline = [&](){
 
@@ -124,17 +123,9 @@ int main( int argc, char* args[] ) {
 		if(s < 0 || s > 1) ds *= -1;
 	});
 
-	delete[] err;
-	delete[] cn;
-
-	delete trianglebuf;
-	delete pointbuf;
-	delete tcolaccbuf;
-	delete tcolnumbuf;
-	delete tenergybuf;
-	delete pgradbuf;
-
+	tri::quit();
 	Tiny::quit();
 
 	return 0;
+
 }

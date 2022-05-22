@@ -1,7 +1,6 @@
 #version 460 core
 
 in vec3 in_Position;
-in ivec4 in_Index;
 
 layout (std430, binding = 0) buffer points {
   vec2 p[];
@@ -59,7 +58,6 @@ void main() {
   }
   tpos.x /= RATIO;
 
-
   if(TDIV == 1 && in_Position.x > 0) tpos  += vec2(dp, 0);
   else if(TDIV == 2 && in_Position.x > 0) tpos  -= vec2(dp, 0);
   else if(TDIV == 3 && in_Position.x > 0) tpos  += vec2( 0,dp);
@@ -73,8 +71,9 @@ void main() {
   else if(TDIV == 11 && in_Position.z > 0) tpos += vec2( 0,dp);
   else if(TDIV == 12 && in_Position.z > 0) tpos -= vec2( 0,dp);
 
-  gl_Position = vec4(tpos, -1, 1.0f);
   vs_out.position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
+  gl_Position = vec4(tpos, -1, 1.0f);
+
 
   //Add One-Ring Energy
 
@@ -82,33 +81,6 @@ void main() {
     atomicAdd(nr[TMOD], 1 );    //count the n-ring! (divided by 3)
 
   // Compute One-Ring Energy per-Vertex
-
-  /*
-
-  if( mode == 1 ){
-
-    if (in_Position.x > 0){
-
-      vec2 wva = tpos - p[ind[TMOD].y]; //Distance from this Vertex to Prev
-      vec2 wvb = tpos - p[ind[TMOD].z]; //Distance from this Vertex to Next
-    ///  atomicAdd(pen[ind[TMOD].x], int(lambda*0.5/3.0*dot(d, d)/nr[TMOD]));
-  //    atomicAdd(pen[ind[TMOD].x], int(lambda*0.5/3.0*dot(d, d)/nr[TMOD]));
-
-    //  atomicAdd(gr[ind[TMOD].x].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
-
-
-
-    }
-
-
-
-
-
-  }
-
-  */
-
-
 
 
   if( TDIV == 0 && mode == 1 ) {
