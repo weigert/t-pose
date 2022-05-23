@@ -1,6 +1,7 @@
 #include <TinyEngine/TinyEngine>
 #include <TinyEngine/image>
 #include <TinyEngine/color>
+#include <TinyEngine/parse>
 
 #include "../../source/triangulate.h"
 
@@ -11,27 +12,39 @@ using namespace glm;
 
 int main( int argc, char* args[] ) {
 
-	if(argc < 2){
-		cout<<"Please specify an output folder."<<endl;
+	// Load Parameters
+
+	parse::get(argc, args);
+
+	string outfolder;
+	if(!parse::option.contains("o")){
+		cout<<"Please specify an output folder with -o."<<endl;
 		exit(0);
 	}
 	else{
-		string outfolder = args[1];
+		outfolder = parse::option["o"];
 		boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
 	}
 
-	string outfolder = args[1];
+	SDL_Surface* IMG = NULL;
+	if(!parse::option.contains("i")){
+		cout<<"Please specify an input image with -i."<<endl;
+		exit(0);
+	}
+	else IMG = IMG_Load(parse::option["i"].c_str());
+	if(IMG == NULL){
+		cout<<"Failed to load image."<<endl;
+		exit(0);
+	}
 
 	// Setup Window
 
-	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
-
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960/1.5, 540/1.5);
-	tri::RATIO = 9.6/5.4;
-
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
 	glDisable(GL_CULL_FACE);
+
+	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
 	bool paused = true;
 	Tiny::view.interface = [](){};
@@ -44,8 +57,8 @@ int main( int argc, char* args[] ) {
 
 	// Image Rendering
 
-	Texture tex(image::load("../../resource/tposeA.png"));		//Load Texture with Image
-	Square2D flat;																						//Create Primitive Model
+	Texture tex(IMG);		//Load Texture with Image
+	Square2D flat;			//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
@@ -220,11 +233,9 @@ int main( int argc, char* args[] ) {
 
 		bool updated = false;
 
-		if( tri::geterr(&tr) < 1E-3 ){
+		if( tri::geterr(&tr) < 1E-4 ){
 
 			// Make sure we start exportin'
-
-
 
 			if(exportlist.empty()){
 				Tiny::event.quit = true;
@@ -242,9 +253,12 @@ int main( int argc, char* args[] ) {
 
 			while(tta >= 0 && tr.split(tta)){
 
-				updated = true;
-				//break;
+				cout<<"NT: "<<tr.NT<<endl;
 
+				updated = true;
+				break;
+
+				/*
 
 				tr.optimize();
 
@@ -258,11 +272,14 @@ int main( int argc, char* args[] ) {
 				tri::pointbuf->retrieve(tr.points);
 				tta = tri::maxerrid(&tr);
 
+
 				if(tta == -1) break;
 				if(tri::maxerr <= curmaxerr)
 					break;
 
-					cout<<tri::maxerr<<" "<<curmaxerr<<endl;
+					*/
+
+			//		cout<<tri::maxerr<<" "<<curmaxerr<<endl;
 			//	curmaxerr = tri::maxerr;
 
 				// Necessary if we split more than one guy

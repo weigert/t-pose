@@ -40,8 +40,10 @@ void main(){
 
   if( mode == 1 ){  // Accumulate Energy
 
-    vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb/cn[vs_out.index]);
-    atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
+    if(cn[vs_out.index] > 0){
+      vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb/cn[vs_out.index]);
+      atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
+    }
 
   }
 
