@@ -2,7 +2,7 @@
 #include <TinyEngine/image>
 #include <TinyEngine/color>
 
-#include "../../source/triangulate.h"
+#include "../../../source/triangulate.h"
 
 using namespace std;
 using namespace glm;
@@ -22,7 +22,7 @@ int main( int argc, char* args[] ) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	Texture tex(image::load("../../resource/canyon.png"));		//Load Texture with Image
+	Texture tex(image::load("../../../resource/canyon.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});

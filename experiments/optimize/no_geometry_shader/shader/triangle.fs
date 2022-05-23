@@ -24,9 +24,7 @@ out vec4 fragColor;
 
 void main(){
 
-  // Accumulate Color
-
-  if( mode == 0 ){
+  if( mode == 0 ){  // Accumulate Color, Triangle Pixel Count
 
     fragColor = texture(imageTexture, vs_out.position);
     atomicAdd(cn[vs_out.index], 1);
@@ -36,23 +34,17 @@ void main(){
 
   }
 
-  // Accumulate Cost Function
+  if( mode == 1 ){  // Accumulate Cost-Per-Pixel
 
-  if( mode == 1 ){
-
-    // Add the Cost of the Pixel
-
-    vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb);
+    vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb/cn[vs_out.index]);
     atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
 
   }
 
-  // Display
-
-  if( mode == 2 ){
+  if( mode == 2 ){  // Draw Triangles
 
   //  fragColor = mix(vec4(0,0,1,1), vec4(1,0,0,1), sqrt(float(en[vs_out.index]/cn[vs_out.index]))/255.0f);
-   fragColor = vec4(vec3(ca[vs_out.index].rgb)/255, 1);
+   fragColor = vec4(vec3(ca[vs_out.index].rgb)/cn[vs_out.index]/255, 1);
 
   }
 

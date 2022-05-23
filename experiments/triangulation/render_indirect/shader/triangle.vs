@@ -7,15 +7,6 @@ buffer points {
   vec2 p[];
 };
 
-out vec3 ex_Color;
-
-vec3 color(int i){
-  float r = ((i >>  0) & 0xff)/255.0f;
-  float g = ((i >>  8) & 0xff)/255.0f;
-  float b = ((i >> 16) & 0xff)/255.0f;
-  return vec3(r,g,b);
-}
-
 void main() {
 
   vec2 tpos = vec2(0);
@@ -24,7 +15,5 @@ void main() {
   if (in_Position.z > 0) tpos = p[in_Index.z];
   tpos.x /= 1200.0f/800.0f;
   gl_Position = vec4(tpos, -1, 1.0f);
-
-  ex_Color = color(gl_InstanceID);
 
 }

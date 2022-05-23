@@ -26,27 +26,15 @@ layout (std430, binding = 7) buffer nring {
   int nr[];
 };
 
-uniform int NTriangles;
-uniform int NPoints;
-
 void main(){
 
   const uint index = gl_GlobalInvocationID.x;
 
-  //if(index < NTriangles){
-
-    ca[index] = ivec4(0);
-    cn[index] = 0;
-    ten[index] = 0;
-    pen[index] = 0;
-
-  //}
-
-  //if(index < NPoints){
-
-    gr[index] = ivec2(0);
-    nr[index] = 0;
-
-  //}
+  ca[index] = ivec4(0);
+  cn[index] = 0;
+  ten[index] = 0;
+  pen[index] = 0;
+  gr[index] = ivec2(0);
+  nr[index] = 0;
 
 };

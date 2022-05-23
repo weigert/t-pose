@@ -42,6 +42,9 @@ void main(){
     tgr.y = 0;
   }
 
-  p[index] -=  0.00005 * tgr / 256 / 256;
+  tgr =  0.00005 * vec2(tgr) / 256 / 256;
+//  if(abs(tgr.x) < 1E-4) tgr.x = 0;
+//  if(abs(tgr.y) < 1E-4) tgr.y = 0;
+  p[index] -=  tgr;
 
 }
