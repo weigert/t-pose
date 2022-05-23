@@ -21,6 +21,10 @@ In a manner of speaking, this uses the energy minimization over triangular surfa
 
 Both of the triangulations above are **warped** triangulations, which can be used to approximate a mesh directly.
 
+![3D mesh reconstruction](https://github.com/weigert/t-pose/blob/main/screenshots/3D.gif)
+
+This is the (very noisy) mesh reconstruction directly from the triangulation. I am working on ways to make it less noisy.
+
 ## Implementation
 
 1. Generate triangulation  for image A, optimizing a cost function and triangulation topology
