@@ -55,11 +55,6 @@ int main( int argc, char* args[] ) {
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
-		2000,
-		1900,
-		1800,
-		1700,
-		1600,
 		1500,
 		1400,
 		1300,
@@ -133,8 +128,6 @@ int main( int argc, char* args[] ) {
 	//tri::triangulation tr(1024);
 	cout<<"Number of Triangles: "<<tr.NT<<endl;
 	tri::upload(&tr);
-
-	importlist.pop_back();
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
@@ -278,17 +271,6 @@ int main( int argc, char* args[] ) {
 
 	auto draw = [&](){
 
-		/*
-		reset.use();
-		reset.uniform("NTriangles", 13*tr.NT);
-		reset.uniform("NPoints", tr.NP);
-
-		if((13*tr.NT) > tr.NP) reset.dispatch(1 + (13*tr.NT)/1024);
-		else reset.dispatch(1 + tr.NP/1024);
-
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		*/
-
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 2);
@@ -351,10 +333,15 @@ int main( int argc, char* args[] ) {
 
 			if(!importlist.empty()){
 
-				tr.read("../../output/"+outfolder+"/"+to_string(importlist.back())+".tri");
-				tri::upload(&tr);
+
+				tr.write("../../output/"+outfolder+"/"+to_string(importlist.back())+".warp.tri", false);
+				io::writeenergy(&tr, "../../output/"+outfolder+"/energy"+to_string(importlist.back())+".txt");
+
+				// Input
 				importlist.pop_back();
 
+				tr.read("../../output/"+outfolder+"/"+to_string(importlist.back())+".tri");
+				tri::upload(&tr);
 
 				elines.clear();
 				for(auto& op: tr.originpoints){
@@ -368,7 +355,6 @@ int main( int argc, char* args[] ) {
 				lbuf.fill(elines);
 				lmesh.SIZE = elines.size();
 
-
 				doreset();
 				doenergy();
 
@@ -378,10 +364,11 @@ int main( int argc, char* args[] ) {
 
 			else{
 
+				tr.write("../../output/"+outfolder+"/"+to_string(importlist.back())+".warp.tri", false);
+				io::writeenergy(&tr, "../../output/"+outfolder+"/energy"+to_string(importlist.back())+".txt");
+
 				// Output the Triangulation (With Energy)
 				Tiny::event.quit = true;
-				tr.write("../../output/"+outfolder+"/out.tri");
-				io::writeenergy(&tr, "../../output/"+outfolder+"/energy.txt");
 				return;
 
 			}

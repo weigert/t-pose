@@ -54,11 +54,6 @@ int main( int argc, char* args[] ) {
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
-		2000,
-		1900,
-		1800,
-		1700,
-		1600,
 		1500,
 		1400,
 		1300,
@@ -128,8 +123,6 @@ int main( int argc, char* args[] ) {
 	//tri::triangulation tr(1024);
 	cout<<"Number of Triangles: "<<tr.NT<<endl;
 	tri::upload(&tr);
-
-	importlist.pop_back();
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
@@ -261,9 +254,16 @@ int main( int argc, char* args[] ) {
 
 			if(!importlist.empty()){
 
+				// Output
+
+				tr.write("../../output/"+outfolder+"/"+to_string(importlist.back())+".warp.tri", false);
+				io::writeenergy(&tr, "../../output/"+outfolder+"/energy"+to_string(importlist.back())+".txt");
+
+				// Input
+				importlist.pop_back();
+
 				tr.read("../../output/"+outfolder+"/"+to_string(importlist.back())+".tri");
 				tri::upload(&tr);
-				importlist.pop_back();
 
 				doreset();
 				doenergy();
@@ -274,10 +274,11 @@ int main( int argc, char* args[] ) {
 
 			else{
 
+				tr.write("../../output/"+outfolder+"/"+to_string(importlist.back())+".warp.tri", false);
+				io::writeenergy(&tr, "../../output/"+outfolder+"/energy"+to_string(importlist.back())+".txt");
+
 				// Output the Triangulation (With Energy)
 				Tiny::event.quit = true;
-				tr.write("../../output/"+outfolder+"/out.tri");
-				io::writeenergy(&tr, "../../output/"+outfolder+"/energy.txt");
 				return;
 
 			}

@@ -241,10 +241,54 @@ Matrix3f F_LMEDS( vector<vec2> A, vector<vec2> B ){
   Matrix3f F;
 
   vector<cv::Point2f> pA, pB;
-  for(auto& a: A) pA.emplace_back(a.x, a.y);
-  for(auto& b: B) pB.emplace_back(b.x, b.y);
+  for(size_t i = 0; i < A.size(); i++){
 
-  cv::Mat cvF = cv::findFundamentalMat(pA, pB, cv::FM_LMEDS, 0.0025, 0.99);
+    // No Boundary Points
+
+    if(A[i].x <= -tri::RATIO) continue;
+    if(A[i].x >= tri::RATIO) continue;
+    if(A[i].y <= -1) continue;
+    if(A[i].y >= 1) continue;
+    if(B[i].x <= -tri::RATIO) continue;
+    if(B[i].x >= tri::RATIO) continue;
+    if(B[i].y <= -1) continue;
+    if(B[i].y >= 1) continue;
+
+    pA.emplace_back(A[i].x, A[i].y);
+    pB.emplace_back(B[i].x, B[i].y);
+
+  }
+
+  cv::Mat cvF = cv::findFundamentalMat(pA, pB, cv::FM_RANSAC, 0.0025, 0.99);
+  cv2eigen(cvF, F);
+  return F;
+
+}
+
+Matrix3f F_RANSAC( vector<vec2> A, vector<vec2> B ){
+
+  Matrix3f F;
+
+  vector<cv::Point2f> pA, pB;
+  for(size_t i = 0; i < A.size(); i++){
+
+    // No Boundary Points
+
+    if(A[i].x <= -tri::RATIO) continue;
+    if(A[i].x >= tri::RATIO) continue;
+    if(A[i].y <= -1) continue;
+    if(A[i].y >= 1) continue;
+    if(B[i].x <= -tri::RATIO) continue;
+    if(B[i].x >= tri::RATIO) continue;
+    if(B[i].y <= -1) continue;
+    if(B[i].y >= 1) continue;
+
+    pA.emplace_back(A[i].x, A[i].y);
+    pB.emplace_back(B[i].x, B[i].y);
+
+  }
+
+  cv::Mat cvF = cv::findFundamentalMat(pA, pB, cv::FM_RANSAC, 0.001, 0.99);
   cv2eigen(cvF, F);
   return F;
 
@@ -490,19 +534,18 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
 //  for(int b = 0; b < 4; b++){
 
   check(1);
-    //if(check(b))
-    for(size_t n = 0; n < N; n++){
+  for(size_t n = 0; n < N; n++){
 
-      Vector3f XA, XB;
-      XA << A[n].x, A[n].y, 1;
-      XB << B[n].x, B[n].y, 1;
+    Vector3f XA, XB;
+    XA << A[n].x, A[n].y, 1;
+    XB << B[n].x, B[n].y, 1;
 
-      Vector4f X = HDLT(K*PA, K*PB, XA, XB);
-      X /= X(3);
+    Vector4f X = HDLT(K*PA, K*PB, XA, XB);
+    X /= X(3);
 
-      points.push_back(vec4(X(0), X(1), X(2), X(3)));
+    points.push_back(vec4(X(0), X(1), X(2), X(3)));
 
-    }
+  }
 
   //}
 

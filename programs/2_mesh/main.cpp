@@ -12,6 +12,11 @@ using namespace Eigen;
 
 int main( int argc, char* args[] ) {
 
+	if(argc < 3){
+		cout<<"Specify two triangulation files"<<endl;
+		exit(0);
+	}
+
 	// Setup Window
 
 	Tiny::view.pointSize = 2.0f;
@@ -27,7 +32,7 @@ int main( int argc, char* args[] ) {
 	cam::moverate = 0.05f;
 	cam::FOV = 0.5;
 	cam::init();
-	cam::look = vec3(0,0,7);
+	cam::look = vec3(0,0,0);
 	cam::update();
 
 	// Setup 3D Point Buf!!!
@@ -80,19 +85,22 @@ int main( int argc, char* args[] ) {
 	pointmesh.bind<vec4>("in_Position", &point3Dbuf);
 
 	tri::triangulation trA, trB;
-	trA.read("2000.tri", false);
-	trB.read("out.tri", false);
+	trA.read(args[1], false);
+	trB.read(args[2], false);
 
 	tri::upload(&trB);
 	pointmesh.SIZE = trA.NP;
 
 	// Load the Enery, Erase Bad Triangles
 
+
+
+
 	vector<float> TEN;
 	vector<float> PEN;
 	vector<int> CN;
 
-	ifstream in("energy.txt", ios::in);
+	ifstream in("energy1500.txt", ios::in);
 	if(in.is_open()){
 
 		// Load the Energy, then delete bad triangles and points.
@@ -150,53 +158,6 @@ int main( int argc, char* args[] ) {
 
 	}
 
-
-
-
-	// Prune Bad Triangles
-
-	for(size_t i = 0; i < trA.triangles.size(); i++){
-
-		float _TEN = sqrt(float(TEN[i])/(float)CN[i])/255.0f;
-    float _PEN = 0.0f;
-    _PEN += PEN[trA.triangles[i].x]/100.0;
-    _PEN += PEN[trA.triangles[i].y]/100.0;
-    _PEN += PEN[trA.triangles[i].z]/100.0;
-
-		cout<<_TEN<<" "<<_PEN<<endl;
-
-    if(_PEN == 0) continue;
-    else if(abs(_TEN) < abs(_PEN/2000000.0)){
-			trA.triangles.erase(trA.triangles.begin()+i);
-			trA.colors.erase(trA.colors.begin()+i);
-			trB.triangles.erase(trB.triangles.begin()+i);
-			trB.colors.erase(trB.colors.begin()+i);
-			cout<<"ERASED "<<i<<endl;
-			//prune
-		}
-
-	}
-
-	tri::upload(&trA);
-
-
-//	tri::trianglebuf->fill(trA.triangles);
-
-
-
-	// Fill the Point3D Buf
-
-	Matrix3f K = unp::Camera();
-//	Matrix3f F = unp::F_LMEDS()
-
-	Matrix3f F;
-	F << -0.936791,      2.24,  -26.1548,
-  1.03284,   1.77101,  -13.5179,
-  26.3407,   10.5485,         1;
-
-
-	// Normalize these Data-Points
-
 	vector<vec2> tempA = trA.points;
 
 	for(auto& pA: tempA){
@@ -213,10 +174,137 @@ int main( int argc, char* args[] ) {
 		pB /= vec2(1200);
 	}
 
-	point3D = unp::triangulate(F, K, tempA, tempB);
+	// Prune Bad Triangles
 
-//	for(auto& pA: trA.points)
-//		point3D.emplace_back(pA.x, pA.y, 0, 1);
+	for(size_t i = 0; i < trA.triangles.size(); i++){
+
+		float _TEN = sqrt(float(TEN[i])/(float)CN[i])/255.0f;
+    float _PEN = 0;
+    _PEN += PEN[trA.triangles[i].x];
+    _PEN += PEN[trA.triangles[i].y];
+    _PEN += PEN[trA.triangles[i].z];
+
+	//	cout<<_TEN<<" "<<_PEN<<endl;
+
+    if(abs(_TEN) < abs(_PEN/5000000)
+		|| (
+			(tempA[trA.triangles[i].x].x <= -tri::RATIO) ||
+	    (tempA[trA.triangles[i].x].x >= tri::RATIO) ||
+	    (tempA[trA.triangles[i].x].y <= -1) ||
+	    (tempA[trA.triangles[i].x].y >= 1) ||
+	    (tempB[trA.triangles[i].x].x <= -tri::RATIO) ||
+	    (tempB[trA.triangles[i].x].x >= tri::RATIO) ||
+	    (tempB[trA.triangles[i].x].y <= -1) ||
+	    (tempB[trA.triangles[i].x].y >= 1) ||
+			(tempA[trA.triangles[i].y].x <= -tri::RATIO) ||
+			(tempA[trA.triangles[i].y].x >= tri::RATIO) ||
+			(tempA[trA.triangles[i].y].y <= -1) ||
+			(tempA[trA.triangles[i].y].y >= 1) ||
+			(tempB[trA.triangles[i].y].x <= -tri::RATIO) ||
+			(tempB[trA.triangles[i].y].x >= tri::RATIO) ||
+			(tempB[trA.triangles[i].y].y <= -1) ||
+			(tempB[trA.triangles[i].y].y >= 1) ||
+			(tempA[trA.triangles[i].z].x <= -tri::RATIO) ||
+			(tempA[trA.triangles[i].z].x >= tri::RATIO) ||
+			(tempA[trA.triangles[i].z].y <= -1) ||
+			(tempA[trA.triangles[i].z].y >= 1) ||
+			(tempB[trA.triangles[i].z].x <= -tri::RATIO) ||
+			(tempB[trA.triangles[i].z].x >= tri::RATIO) ||
+			(tempB[trA.triangles[i].z].y <= -1) ||
+			(tempB[trA.triangles[i].z].y >= 1)
+		)){
+			trA.triangles.erase(trA.triangles.begin()+i);
+			trA.colors.erase(trA.colors.begin()+i);
+			trB.triangles.erase(trB.triangles.begin()+i);
+			trB.colors.erase(trB.colors.begin()+i);
+			TEN.erase(TEN.begin()+i);
+			CN.erase(CN.begin()+i);
+
+			trA.NT--;
+			trB.NT--;
+		//	cout<<"ERASED "<<i<<endl;
+			//prune
+			i--;
+		}
+
+	}
+
+	cout<<"Pruning Points"<<endl;
+
+	for(size_t p = 0; p < trA.points.size(); p++){
+
+		// Iterate over triangles
+		bool found = false;
+
+		for(size_t t = 0; t < trA.triangles.size(); t++){
+			if(trA.triangles[t].x == p) found = true;
+			if(trA.triangles[t].y == p) found = true;
+			if(trA.triangles[t].z == p) found = true;
+			if(found) break;
+		}
+
+		if(!found){ // Prune
+
+			for(size_t t = 0; t < trA.triangles.size(); t++){
+				if(trA.triangles[t].x >= p) trA.triangles[t].x--;
+				if(trA.triangles[t].y >= p) trA.triangles[t].y--;
+				if(trA.triangles[t].z >= p) trA.triangles[t].z--;
+				if(trB.triangles[t].x >= p) trB.triangles[t].x--;
+				if(trB.triangles[t].y >= p) trB.triangles[t].y--;
+				if(trB.triangles[t].z >= p) trB.triangles[t].z--;
+			}
+
+			trA.points.erase(trA.points.begin() + p);
+			trB.points.erase(trB.points.begin() + p);
+			p--;
+
+			trA.NP--;
+			trB.NP--;
+
+		}
+
+	}
+
+	tri::upload(&trA);
+
+
+
+
+//	tri::trianglebuf->fill(trA.triangles);
+
+
+
+	// Fill the Point3D Buf
+
+
+	// Normalize these Data-Points
+
+	tempA = trA.points;
+
+	for(auto& pA: tempA){
+		pA.x = 0.5f*(pA.x / (12.0/6.75) + 1.0f)*1200;
+		pA.y = 0.5f*(-pA.y + 1.0f)*675;
+		pA /= vec2(1200);
+	}
+
+	tempB = trB.points;
+
+	for(auto& pB: tempB){
+		pB.x = 0.5f*(pB.x / (12.0/6.75) + 1.0f)*1200;
+		pB.y = 0.5f*(-pB.y + 1.0f)*675;
+		pB /= vec2(1200);
+	}
+
+	Matrix3f K = unp::Camera();
+//	Matrix3f F = unp::F_LMEDS(tempA, tempB);
+
+
+Matrix3f F;
+F << -0.936791,      2.24,  -26.1548,
+1.03284,   1.77101,  -13.5179,
+26.3407,   10.5485,         1;
+
+	point3D = unp::triangulate(F, K, tempA, tempB);
 	point3Dbuf.fill(point3D);
 
 	// Color Accumulation Buffers
@@ -225,33 +313,27 @@ int main( int argc, char* args[] ) {
 
 	auto draw = [&](){
 
-
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("K", trA.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
 		triangleshader.uniform("vp", cam::vp);
-		triangleshader.uniform("model", rotate(mat4(1), 3.14159265f, vec3(0,0,1)));
+		triangleshader.uniform("model", rotate(mat4(1.0f), 3.14159265f, vec3(0,0,1)));
 		triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
-
 
 		point.use();
 		point.uniform("RATIO", tri::RATIO);
 		point.uniform("vp", cam::vp);
-		point.uniform("model", rotate(mat4(1), 3.14159265f, vec3(0,0,1)));
+		point.uniform("model", rotate(mat4(1.0f), 3.14159265f, vec3(0,0,1)));
 		pointmesh.render(GL_POINTS);
-
-
 
 		if(showlines){
 			linestrip.use();
 			linestrip.uniform("RATIO", tri::RATIO);
 			linestrip.uniform("vp", cam::vp);
-			linestrip.uniform("model", rotate(mat4(1), 3.14159265f, vec3(0,0,1)));
+			linestrip.uniform("model", rotate(mat4(1.0f), 3.14159265f, vec3(0,0,1)));
 			linestripinstance.render(GL_LINE_STRIP, trA.NT);
 		}
-
-
 
 	};
 

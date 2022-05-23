@@ -9,6 +9,11 @@ using namespace std;
 
 int main( int argc, char* args[] ) {
 
+	if(argc < 3){
+		cout<<"Specify two triangulation files"<<endl;
+		exit(0);
+	}
+
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
@@ -64,8 +69,8 @@ int main( int argc, char* args[] ) {
 	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
 
 	tri::triangulation trA, trB;
-	trA.read("2000.tri", false);
-	trB.read("out.tri", false);
+	trA.read(args[1], false);
+	trB.read(args[2], false);
 
 	tri::upload(&trB);
 	otherpointbuf.fill(trA.points);

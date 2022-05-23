@@ -16,40 +16,39 @@ int main( int argc, char* args[] ) {
 		exit(0);
 	}
 	else{
-
 		string outfolder = args[1];
-		// make the directory...
 		boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
-
 	}
 
 	string outfolder = args[1];
 
+	// Setup Window
 
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960/1.5, 540/1.5);
-	tri::RATIO = 9.6/5.4;
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 1200/1.5, 675/1.5);
+	tri::RATIO = 12.0/6.75;
+
+	glDisable(GL_CULL_FACE);
 
 	bool paused = true;
-
+	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
 			paused = !paused;
 
 	};
-	Tiny::view.interface = [](){};
+
+	// Image Rendering
 
 	Texture tex(image::load("../../resource/imageA.png"));		//Load Texture with Image
-	Square2D flat;														//Create Primitive Model
+	Square2D flat;																						//Create Primitive Model
+
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
-
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
 
 	// Shaders and Buffers
 
@@ -78,10 +77,6 @@ int main( int argc, char* args[] ) {
 	reset.bind<int>("penergy", tri::penergybuf);
 	reset.bind<ivec2>("gradient", tri::pgradbuf);
 	reset.bind<int>("nring", tri::tnringbuf);
-
-	Compute average({"shader/average.cs"}, {"colacc", "colnum"});
-	average.bind<ivec4>("colacc", tri::tcolaccbuf);
-	average.bind<int>("colnum", tri::tcolnumbuf);
 
 	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "penergy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
@@ -116,11 +111,7 @@ int main( int argc, char* args[] ) {
 		reset.use();
 		reset.uniform("NTriangles", 13*tr.NT);
 		reset.uniform("NPoints", tr.NP);
-
-		if((13*tr.NT) > tr.NP) reset.dispatch(1 + (13*tr.NT)/1024);
-		else reset.dispatch(1 + tr.NP/1024);
-
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		reset.dispatch(1 + (13*tr.NT)/1024);
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
@@ -128,11 +119,6 @@ int main( int argc, char* args[] ) {
 		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
-
-		average.use();
-		average.uniform("NTriangles", (13*tr.NT));
-		average.dispatch(1 + (13*tr.NT)/1024);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 	};
 
@@ -196,11 +182,6 @@ int main( int argc, char* args[] ) {
 	};
 
 	vector<int> exportlist = {
-		2000,
-		1900,
-		1800,
-		1700,
-		1600,
 		1500,
 		1400,
 		1300,

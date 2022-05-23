@@ -96,7 +96,7 @@ struct triangulation {
 	// IO Functions
 
 	void read( string file, bool warp );
-	void write( string file );
+	void write( string file, bool normalize );
 
 };
 
@@ -278,7 +278,7 @@ bool triangulation::flip( int ha ){
 	triangles[tb][(hb+1)%3] = tcb[(hb+2)%3];
 	triangles[tb][(hb+2)%3] = tca[(ha+1)%3];
 
-	cout<<"FLIPPED"<<endl;
+	//cout<<"FLIPPED"<<endl;
 	return true;
 
 }
@@ -293,19 +293,21 @@ bool triangulation::collapse( int ha ){
 
 	if(hb < 0)	return false; // No Opposing Half-Edge
 
-	if(boundary(ta) > 0 			// No Boundary Collapsing
-	|| boundary(tb) > 0)
-		return false;
-
 	int ia = triangles[ta][(ha+0)%3];
 	int ib = triangles[tb][(hb+0)%3];
 
 	if(length(points[ia] - points[ib]) > 0.01)
 		return false;
 
-	// Add new Point
+	// Add new Point, with boundary checking!
 
-	vec2 vn = 0.5f*(points[ia] + points[ib]);
+	vec2 vn;
+	if(boundary(points[ia]) && boundary(points[ib]))
+		vn = 0.5f*(points[ia] + points[ib]);
+	else if(boundary(points[ia])) vn = points[ia];
+	else if(boundary(points[ib])) vn = points[ib];
+	else 	vn = 0.5f*(points[ia] + points[ib]);
+
 	int in = points.size();
 	points.push_back(vn);
 
@@ -453,7 +455,7 @@ bool triangulation::split( int ta ){
 	NT += 2;
 	NP += 1;
 
-	cout<<"SPLIT "<<ta<<endl;
+//	cout<<"SPLIT "<<ta<<endl;
 	return true;
 
 }
@@ -496,8 +498,6 @@ bool triangulation::optimize(){
 
 	}
 
-	/*
-
 	// Collapse Small Edges
 
 	for(size_t ta = 0; ta < triangles.size(); ta++){
@@ -512,167 +512,7 @@ bool triangulation::optimize(){
 
 	}
 
-	*/
-
 	return true;
-
-}
-
-/*
-================================================================================
-														Triangulation IO
-================================================================================
-*/
-
-// Export a Triangulation
-
-void triangulation::write( string file ){
-
-	cout<<"Exporting to file "<<file<<endl;
-	ofstream out(file, ios::out);
-	if(!out.is_open()){
-		cout<<"Failed to open file "<<file<<endl;
-		exit(0);
-	}
-
-	// Export Vertices
-
-	out<<"VERTEX"<<endl;
-	for(auto& p: points)
-		out<<p.x<<" "<<p.y<<endl;
-
-	// Export Halfedges
-
-	out<<"HALFEDGE"<<endl;
-	for(size_t i = 0; i < halfedges.size()/3; i++)
-		out<<halfedges[3*i+0]<<" "<<halfedges[3*i+1]<<" "<<halfedges[3*i+2]<<endl;
-
-	// Export Triangles
-
-	out<<"TRIANGLE"<<endl;
-	for(auto& t: triangles)
-		out<<t.x<<" "<<t.y<<" "<<t.z<<endl;
-
-	// Export Colors
-
-	out<<"COLOR"<<endl;
-	for(size_t i = 0; i < NT; i++)
-		out<<colors[i].x<<" "<<colors[i].y<<" "<<colors[i].z<<endl;
-
-	out.close();
-
-}
-
-// Import a Triangulation
-
-void triangulation::read( string file, bool warp = true ){
-
-	cout<<"Importing from file "<<file<<endl;
-	ifstream in(file, ios::in);
-	if(!in.is_open()){
-		cout<<"Failed to open file "<<file<<endl;
-		exit(0);
-	}
-
-	string pstring;
-
-	vec2 p = vec2(0);
-	ivec4 c = ivec4(0);
-	ivec4 t = ivec4(0);
-	ivec3 h = ivec3(0);
-
-	vector<vec2> npoints;
-	vector<vec2> noriginpoints;
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		if(pstring == "HALFEDGE")
-			break;
-
-		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
-		if(m == 2){
-			npoints.push_back(p);
-			noriginpoints.push_back(p);
-		}
-
-	}
-
-	// Check for Warping
-
-	if(!triangles.empty() && warp)
-	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
-
-		if(boundary(npoints[i]))
-			continue;
-
-		for(auto& t: triangles){
-
-			if(!intriangle(npoints[i], t, originpoints))
-				continue;
-
-			npoints[i] = cartesian(barycentric(npoints[i], t, originpoints), t, points);
-			break;
-
-		}
-
-	}
-
-	points = npoints;
-	originpoints = noriginpoints;
-	NP = points.size();
-
-	halfedges.clear();
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		if(pstring == "TRIANGLE")
-			break;
-
-		int m = sscanf(pstring.c_str(), "%u %u %u", &h.x, &h.y, &h.z);
-		if(m == 3){
-			halfedges.push_back(h.x);
-			halfedges.push_back(h.y);
-			halfedges.push_back(h.z);
-		}
-
-	}
-
-	triangles.clear();
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		if(pstring == "COLOR")
-			break;
-
-		int m = sscanf(pstring.c_str(), "%u %u %u", &t.x, &t.y, &t.z);
-		if(m == 3) triangles.push_back(t);
-
-	}
-
-	NT = triangles.size();
-
-	colors.clear();
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		int m = sscanf(pstring.c_str(), "%u %u %u", &c.x, &c.y, &c.z);
-		if(m == 3) colors.push_back(ivec4(c.x, c.y, c.z, 1));
-
-	}
-
-	in.close();
 
 }
 
@@ -797,6 +637,171 @@ int maxerrid( tri::triangulation* tr ){
 	return tta;
 
 }
+
+/*
+================================================================================
+														Triangulation IO
+================================================================================
+*/
+
+// Export a Triangulation
+
+void triangulation::write( string file, bool normalize = true ){
+
+	cout<<"Exporting to file "<<file<<endl;
+	ofstream out(file, ios::out);
+	if(!out.is_open()){
+		cout<<"Failed to open file "<<file<<endl;
+		exit(0);
+	}
+
+	// Export Vertices
+
+	out<<"VERTEX"<<endl;
+	for(auto& p: points)
+		out<<p.x<<" "<<p.y<<endl;
+
+	// Export Halfedges
+
+	out<<"HALFEDGE"<<endl;
+	for(size_t i = 0; i < halfedges.size()/3; i++)
+		out<<halfedges[3*i+0]<<" "<<halfedges[3*i+1]<<" "<<halfedges[3*i+2]<<endl;
+
+	// Export Triangles
+
+	out<<"TRIANGLE"<<endl;
+	for(auto& t: triangles)
+		out<<t.x<<" "<<t.y<<" "<<t.z<<endl;
+
+	// Export Colors
+
+	out<<"COLOR"<<endl;
+	for(size_t i = 0; i < NT; i++){
+		if(normalize){
+			if(cn[i] == 0) cn[i] = 1;
+			out<<colors[i].x/cn[i]<<" "<<colors[i].y/cn[i]<<" "<<colors[i].z/cn[i]<<endl;
+		}
+		else out<<colors[i].x<<" "<<colors[i].y<<" "<<colors[i].z<<endl;
+
+	}
+
+	out.close();
+
+}
+
+// Import a Triangulation
+
+void triangulation::read( string file, bool warp = true ){
+
+	cout<<"Importing from file "<<file<<endl;
+	ifstream in(file, ios::in);
+	if(!in.is_open()){
+		cout<<"Failed to open file "<<file<<endl;
+		exit(0);
+	}
+
+	string pstring;
+
+	vec2 p = vec2(0);
+	ivec4 c = ivec4(0);
+	ivec4 t = ivec4(0);
+	ivec3 h = ivec3(0);
+
+	vector<vec2> npoints;
+	vector<vec2> noriginpoints;
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "HALFEDGE")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
+		if(m == 2){
+			npoints.push_back(p);
+			noriginpoints.push_back(p);
+		}
+
+	}
+
+	// Check for Warping
+
+	if(!triangles.empty() && warp)
+	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
+
+		if(boundary(npoints[i]))
+			continue;
+
+		for(auto& t: triangles){
+
+			if(!intriangle(npoints[i], t, originpoints))
+				continue;
+
+			npoints[i] = cartesian(barycentric(npoints[i], t, originpoints), t, points);
+			break;
+
+		}
+
+	}
+
+	points = npoints;
+	originpoints = noriginpoints;
+	NP = points.size();
+
+	halfedges.clear();
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "TRIANGLE")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &h.x, &h.y, &h.z);
+		if(m == 3){
+			halfedges.push_back(h.x);
+			halfedges.push_back(h.y);
+			halfedges.push_back(h.z);
+		}
+
+	}
+
+	triangles.clear();
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		if(pstring == "COLOR")
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &t.x, &t.y, &t.z);
+		if(m == 3) triangles.push_back(t);
+
+	}
+
+	NT = triangles.size();
+
+	colors.clear();
+	while(!in.eof()){
+
+		getline(in, pstring);
+		if(in.eof())
+			break;
+
+		int m = sscanf(pstring.c_str(), "%u %u %u", &c.x, &c.y, &c.z);
+		if(m == 3) colors.push_back(ivec4(c.x, c.y, c.z, 1));
+
+	}
+
+	in.close();
+
+}
+
 
 } //End of Namespace
 
