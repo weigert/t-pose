@@ -23,6 +23,12 @@ In a manner of speaking, this uses the energy minimization over triangular surfa
 2. Warp triangulation onto image B, also by optimizing a cost function (preserving topology)
 3. Compute fundamental matrix, unproject points, visualize mesh
 
+![triangulation](https://github.com/weigert/t-pose/blob/main/screenshots/triangulate.gif)
+
+![warping](https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif)
+
+![interpolate](https://github.com/weigert/t-pose/blob/main/screenshots/view.gif)
+
 Optionally, if the fundamental matrix is known (e.g. by other feature matching techniques), then the warping can utilize the epipolar geometry to warp more optimally and the mesh comes out better.
 
 The triangulation can be accelerated by using a good initial guess, e.g. delaunay triangulating interest points. This is not necessary, the triangulations that the system finds without any assumptions are very good.
