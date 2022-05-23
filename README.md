@@ -17,6 +17,10 @@ For a calibrated camera, this allows for direct computation of camera pose and m
 
 In a manner of speaking, this uses the energy minimization over triangular surfaces of uniform orientation to extract triangulation vertices as features.
 
+![two warped triangulations](https://github.com/weigert/t-pose/blob/main/screenshots/warp.png)
+
+Both of the triangulations above are **warped** triangulations, which can be used to approximate a mesh directly.
+
 ## Implementation
 
 1. Generate triangulation  for image A, optimizing a cost function and triangulation topology
