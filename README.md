@@ -27,6 +27,8 @@ In a manner of speaking, this uses the energy minimization over triangular surfa
 
 ![warping](https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif)
 
+![warping with mesh shown](https://github.com/weigert/t-pose/blob/main/screenshots/warp2.gif)
+
 ![interpolate](https://github.com/weigert/t-pose/blob/main/screenshots/view.gif)
 
 (thanks to my roommate aaron for t-posing lol)
