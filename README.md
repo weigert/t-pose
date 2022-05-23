@@ -23,7 +23,7 @@ Both of the triangulations above are **warped** triangulations, which can be use
 
 ![3D mesh reconstruction](https://github.com/weigert/t-pose/blob/main/screenshots/3D.gif)
 
-This is the (very noisy) mesh reconstruction directly from the triangulation. I am working on ways to make it less noisy.
+This is the (very noisy) mesh reconstruction directly from the triangulation. I am working on ways to make it less noisy and remove boundary artifacts. This mostly relates to topology optimization during warping (see below).
 
 ## Implementation
 
