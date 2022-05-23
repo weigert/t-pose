@@ -29,6 +29,10 @@ In a manner of speaking, this uses the energy minimization over triangular surfa
 
 ![interpolate](https://github.com/weigert/t-pose/blob/main/screenshots/view.gif)
 
+(thanks to my roommate aaron for t-posing lol)
+
+Some boundary artifacts can be seen in the warped image.
+
 Optionally, if the fundamental matrix is known (e.g. by other feature matching techniques), then the warping can utilize the epipolar geometry to warp more optimally and the mesh comes out better.
 
 The triangulation can be accelerated by using a good initial guess, e.g. delaunay triangulating interest points. This is not necessary, the triangulations that the system finds without any assumptions are very good.
@@ -66,9 +70,9 @@ Nicholas McDonald, 2022
 
 ### Mid Term
 
-- Two-Way Consistent Warping
-- Fix Flip Oscillation Somehow ( Flip Decay? )
-- Implement Linear Gradient Cost Function for Improved Fitting!
+- Two-Way Consistent Warping! Should prevent some artifacts.
+- Fix Flip Oscillation Somehow ( Flip Decay? ). This is the main slowing factor.
+- Implement Linear Gradient Cost Function for improved fitting!
 - Texture Mip-Mapping for Improved Speed and Accuracy
 
 ### Long Term
