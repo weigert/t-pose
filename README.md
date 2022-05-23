@@ -39,6 +39,8 @@ Optionally, if the fundamental matrix is known (e.g. by other feature matching t
 
 The triangulation can be accelerated by using a good initial guess, e.g. delaunay triangulating interest points. This is not necessary, the triangulations that the system finds without any assumptions are very good.
 
+Below are some ideas I have for improving each step of the pipeline, which should each improve the reconstruction quality.
+
 ## Usage
 
 Written in C++.
