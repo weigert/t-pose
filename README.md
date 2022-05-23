@@ -43,6 +43,16 @@ Below are some ideas I have for improving each step of the pipeline, which shoul
 
 ### More Details
 
+The triangulation is computed by minimizing the energy as the difference between the triangle's average color and the color sampled at the texture. The gradient descent works (without geometry shaders) by approximating the gradient by generating shifted triangles and rasterizing in the fragment shader.
+
+The topological optimization occurs by taking the most "expensive" triangles and splitting them at their centroid. Triangles with short edges have their shortest edge collapsed, and a delaunay-flip happens when required by measuring angles.
+
+The triangulations are successive and increasing in detail. This gives us a triangulation hierarchy, which is used for warping.
+
+We warp the triangulation from coarse to fine by minimizing the cost without toplogical optimization (for now, see todo). The warping from the previous level of detail is then used to transform the initial coordinates using barycentrics so that fine triangulation warping is achieved ("hierarchical warping").
+
+Finally, using the warped positions of vertices a fundamental matrix is estimated for direct mesh reconstruction. This is currently the step which works the least well, and will be investigated more in the future.
+
 ## Usage
 
 Written in C++.
