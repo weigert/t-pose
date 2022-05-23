@@ -41,6 +41,8 @@ The triangulation can be accelerated by using a good initial guess, e.g. delauna
 
 Below are some ideas I have for improving each step of the pipeline, which should each improve the reconstruction quality.
 
+### More Details
+
 ## Usage
 
 Written in C++.
