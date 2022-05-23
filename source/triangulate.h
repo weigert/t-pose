@@ -229,7 +229,7 @@ bool triangulation::flip( int ha ){
 	float aa = angle(ha);
 	float ab = angle(hb);
 
-	if(aa + ab <= PI)
+	if(aa + ab < PI)
 		return false;
 
 	if(aa <= 1E-8 || ab <= 1E-8)

@@ -186,7 +186,7 @@ int main( int argc, char* args[] ) {
 
 	//	cout<<_TEN<<" "<<_PEN<<endl;
 
-    if(abs(_TEN) < abs(_PEN/5000000)
+    if(abs(_TEN) < abs(_PEN/1000000)
 		|| (
 			(tempA[trA.triangles[i].x].x <= -tri::RATIO) ||
 	    (tempA[trA.triangles[i].x].x >= tri::RATIO) ||
@@ -296,13 +296,13 @@ int main( int argc, char* args[] ) {
 	}
 
 	Matrix3f K = unp::Camera();
-//	Matrix3f F = unp::F_LMEDS(tempA, tempB);
+	Matrix3f F = unp::F_RANSAC(tempA, tempB);
 
 
-Matrix3f F;
-F << -0.936791,      2.24,  -26.1548,
-1.03284,   1.77101,  -13.5179,
-26.3407,   10.5485,         1;
+//Matrix3f F;
+//F << -0.936791,      2.24,  -26.1548,
+//1.03284,   1.77101,  -13.5179,
+//26.3407,   10.5485,         1;
 
 	point3D = unp::triangulate(F, K, tempA, tempB);
 	point3Dbuf.fill(point3D);

@@ -33,7 +33,7 @@ int main( int argc, char* args[] ) {
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Triangulation Warping, Nicholas Mcdonald 2022", 960, 540);
+	Tiny::window("Energy Based Triangulation Warping, Nicholas Mcdonald 2022", 960/1.5, 540/1.5);
 	tri::RATIO = 9.6/5.4;
 
 	bool paused = true;
@@ -50,7 +50,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("../../resource/imageB.png"));		//Load Texture with Image
+	Texture tex(image::load("../../resource/tposeB.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
@@ -136,6 +136,8 @@ int main( int argc, char* args[] ) {
 
 	// Convenience Lambdas
 
+	bool dotension = true;
+
 	auto doreset = [&](){
 
 		reset.use();
@@ -161,6 +163,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);
 		triangleshader.uniform("mode", 1);
+		triangleshader.uniform("dotension", dotension);
 		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
@@ -246,6 +249,9 @@ int main( int argc, char* args[] ) {
 
 	//	if(donext){
 		if( tri::geterr(&tr) < 1E-6 ){
+
+			dotension = !dotension;
+			if(!dotension) return;
 
 			donext = false;
 			cout<<"RETRIANGULATE"<<endl;

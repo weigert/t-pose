@@ -45,7 +45,7 @@ void main() {
     pind = ind[TMOD].z;
 
   vec2 tpos = p[pind];    // Vertex Image-Space (-RATIO, RATIO) x, (-1, 1) y
-  const float dp = 0.025f; // Image-Space Pixel Shift
+  const float dp = 0.01f; // Image-Space Pixel Shift
 
   if(TDIV == 1 && in_Position.x > 0) tpos  += vec2(dp, 0);
   else if(TDIV == 2 && in_Position.x > 0) tpos  -= vec2(dp, 0);
@@ -72,7 +72,7 @@ void main() {
 
   if( TDIV == 0 && mode == 1 ) {
 
-    const float lambda = 100*256*256;
+    const float lambda = 0*256*256;
 
     if (in_Position.x > 0){
 

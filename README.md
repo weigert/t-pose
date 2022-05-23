@@ -4,8 +4,8 @@
 
 Two-View Pose Estimation and Direct-Mesh Scene Reconstruction from Image Triangulation
 
-Note: This is a rough proof of concept and this repo ist still sloppy, being cleaned.
-This currently also does not include a bundle adjustment step.
+Note: This is a rough proof of concept / prototype and this repo ist still sloppy, being cleaned.
+This currently also does not include a bundle adjustment step. A number of potential improvements are listed below.
 
 ## Concept
 
@@ -63,6 +63,7 @@ Nicholas McDonald, 2022
 - Two-Way Consistent Warping
 - Fix Flip Oscillation Somehow ( Flip Decay? )
 - Implement Linear Gradient Cost Function for Improved Fitting!
+- Texture Mip-Mapping for Improved Speed and Accuracy
 
 ### Long Term
 

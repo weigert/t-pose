@@ -28,8 +28,8 @@ int main( int argc, char* args[] ) {
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 1200/1.5, 675/1.5);
-	tri::RATIO = 12.0/6.75;
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960/1.5, 540/1.5);
+	tri::RATIO = 9.6/5.4;
 
 	glDisable(GL_CULL_FACE);
 
@@ -44,7 +44,7 @@ int main( int argc, char* args[] ) {
 
 	// Image Rendering
 
-	Texture tex(image::load("../../resource/imageA.png"));		//Load Texture with Image
+	Texture tex(image::load("../../resource/tposeA.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
@@ -162,9 +162,9 @@ int main( int argc, char* args[] ) {
 	//	point.uniform("RATIO", tri::RATIO);
 	//	pointmesh.render(GL_POINTS, tr.NT);
 
-		linestrip.use();
-		linestrip.uniform("RATIO", tri::RATIO);
-		linestripinstance.render(GL_LINE_STRIP, tr.NT);
+	//	linestrip.use();
+	//	linestrip.uniform("RATIO", tri::RATIO);
+	//p	linestripinstance.render(GL_LINE_STRIP, tr.NT);
 
 	};
 
@@ -220,7 +220,7 @@ int main( int argc, char* args[] ) {
 
 		bool updated = false;
 
-		if( tri::geterr(&tr) < 1E-4 ){
+		if( tri::geterr(&tr) < 1E-3 ){
 
 			// Make sure we start exportin'
 
@@ -243,8 +243,8 @@ int main( int argc, char* args[] ) {
 			while(tta >= 0 && tr.split(tta)){
 
 				updated = true;
-				break;
-				/*
+				//break;
+
 
 				tr.optimize();
 
@@ -252,8 +252,10 @@ int main( int argc, char* args[] ) {
 				computecolors();
 				doenergy();
 
-				tri::tenergybuf->retrieve((13*tr.NT), tri::err);
+				tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+				tri::penergybuf->retrieve((13*tr.NT), tri::perr);
 				tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
+				tri::pointbuf->retrieve(tr.points);
 				tta = tri::maxerrid(&tr);
 
 				if(tta == -1) break;
@@ -265,7 +267,7 @@ int main( int argc, char* args[] ) {
 
 				// Necessary if we split more than one guy
 
-				*/
+
 
 			}
 

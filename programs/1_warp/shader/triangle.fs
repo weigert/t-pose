@@ -63,9 +63,7 @@ void main(){
     if(abs(TEN) < abs(PEN/200000)) fragColor = vec4(1,0,0,1);
     else fragColor = vec4(0,0,1,1);
 
-
-  //  fragColor = mix(vec4(0,0.5,1,1), vec4(1,0.5,0,1), );
-    //fragColor = vec4(vec3(ca[vs_out.index].rgb)/255, 1);
+    fragColor = vec4(vec3(ca[vs_out.index].rgb)/255, 1);
 
   }
 

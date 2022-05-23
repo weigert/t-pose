@@ -32,6 +32,7 @@ out VS_OUT {
 uniform float RATIO;
 uniform int KTriangles;
 uniform int mode;
+uniform bool dotension;
 
 void main() {
 
@@ -48,7 +49,7 @@ void main() {
     pind = ind[TMOD].z;
 
   vec2 tpos = p[pind];    // Vertex Image-Space (-RATIO, RATIO) x, (-1, 1) y
-  const float dp = 0.025f; // Image-Space Pixel Shift
+  const float dp = 0.03f; // Image-Space Pixel Shift
 
   if(TDIV == 1 && in_Position.x > 0) tpos  += vec2(dp, 0);
   else if(TDIV == 2 && in_Position.x > 0) tpos  -= vec2(dp, 0);
@@ -76,7 +77,8 @@ void main() {
 
   if( TDIV == 0 && mode == 1 ) {
 
-    const float lambda = 4000*256*256;
+    float lambda = 1000*256*256;
+  //  if(!dotension) lambda = 0;
 
     if (in_Position.x > 0){
 
