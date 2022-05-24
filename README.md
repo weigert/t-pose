@@ -17,6 +17,14 @@ For a calibrated camera, this allows for direct computation of camera pose and m
 
 In a manner of speaking, this uses the energy minimization over triangular surfaces of uniform orientation to extract triangulation vertices as features.
 
+![two warped triangulations](https://github.com/weigert/t-pose/blob/main/screenshots/warp.png)
+
+Both of the triangulations above are **warped** triangulations, which can be used to approximate a mesh directly.
+
+![3D mesh reconstruction](https://github.com/weigert/t-pose/blob/main/screenshots/3D.gif)
+
+This is the (very noisy) mesh reconstruction directly from the triangulation. I am working on ways to make it less noisy and remove boundary artifacts. This mostly relates to topology optimization during warping (see below).
+
 ## Implementation
 
 1. Generate triangulation  for image A, optimizing a cost function and triangulation topology
@@ -29,6 +37,8 @@ Alternatively, you can generate triangulations for image A and B and use a two-w
 
 ![warping](https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif)
 
+![warping with mesh shown](https://github.com/weigert/t-pose/blob/main/screenshots/warp2.gif)
+
 ![interpolate](https://github.com/weigert/t-pose/blob/main/screenshots/view.gif)
 
 (thanks to my roommate aaron for t-posing lol)
@@ -38,6 +48,20 @@ Some boundary artifacts can be seen in the warped image.
 Optionally, if the fundamental matrix is known (e.g. by other feature matching techniques), then the warping can utilize the epipolar geometry to warp more optimally and the mesh comes out better.
 
 The triangulation can be accelerated by using a good initial guess, e.g. delaunay triangulating interest points. This is not necessary, the triangulations that the system finds without any assumptions are very good.
+
+Below are some ideas I have for improving each step of the pipeline, which should each improve the reconstruction quality.
+
+### More Details
+
+The triangulation is computed by minimizing the energy as the difference between the triangle's average color and the color sampled at the texture. The gradient descent works (without geometry shaders) by approximating the gradient by generating shifted triangles and rasterizing in the fragment shader.
+
+The topological optimization occurs by taking the most "expensive" triangles and splitting them at their centroid. Triangles with short edges have their shortest edge collapsed, and a delaunay-flip happens when required by measuring angles.
+
+The triangulations are successive and increasing in detail. This gives us a triangulation hierarchy, which is used for warping.
+
+We warp the triangulation from coarse to fine by minimizing the cost without toplogical optimization (for now, see todo). The warping from the previous level of detail is then used to transform the initial coordinates using barycentrics so that fine triangulation warping is achieved ("hierarchical warping").
+
+Finally, using the warped positions of vertices a fundamental matrix is estimated for direct mesh reconstruction. This is currently the step which works the least well, and will be investigated more in the future.
 
 ## Usage
 
