@@ -23,6 +23,8 @@ In a manner of speaking, this uses the energy minimization over triangular surfa
 2. Warp triangulation onto image B, also by optimizing a cost function (preserving topology)
 3. Compute fundamental matrix, unproject points, visualize mesh
 
+Alternatively, you can generate triangulations for image A and B and use a two-way consistent warping (with barycentrics) to improve the warping quality and make it converge more consistently.
+
 ![triangulation](https://github.com/weigert/t-pose/blob/main/screenshots/triangulate.gif)
 
 ![warping](https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif)
@@ -70,7 +72,6 @@ Nicholas McDonald, 2022
 
 ### Mid Term
 
-- Two-Way Consistent Warping! Should prevent some artifacts.
 - Fix Flip Oscillation Somehow ( Flip Decay? ). This is the main slowing factor.
 - Implement Linear Gradient Cost Function for improved fitting!
 - Texture Mip-Mapping for Improved Speed and Accuracy

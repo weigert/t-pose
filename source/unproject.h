@@ -234,6 +234,63 @@ Matrix3f F_Sampson( vector<vec2> pA, vector<vec2> pB ){
 
 }
 
+Matrix3f F_Sampson( vector<vec2> pA, vector<vec2> pB, vector<float> w ){
+
+  Matrix3f F = F_8Point(pA, pB);        // Initial Fundamental Matrix Guess
+  size_t N = pA.size();
+
+  MatrixXf A = MatrixXf::Zero(N, 9);    // Solution Matrix
+  VectorXf W = VectorXf(N);             // Contribution Weights
+
+  Matrix3f HA = normalize(pA);
+  Matrix3f HB = normalize(pB);
+
+  const size_t MAXITER = 100;
+  for(size_t k = 0; k < MAXITER; k++){
+
+    for(size_t n = 0; n < N; n++){
+
+      vec3 L = eline(F.transpose(), pB[n]);
+      vec3 R = eline(F, pA[n]);
+      W(n) = 1.0f / ( L.x*L.x + L.y*L.y + R.x*R.x + R.y*R.y );
+
+    }
+
+    for(size_t n = 0; n < N; n++){
+
+      A(n, 0) = w[n] * W[n] * pA[n].x * pB[n].x;
+      A(n, 1) = w[n] * W[n] * pA[n].y * pB[n].x;
+      A(n, 2) = w[n] * W[n] * pB[n].x;
+      A(n, 3) = w[n] * W[n] * pA[n].x * pB[n].y;
+      A(n, 4) = w[n] * W[n] * pA[n].y * pB[n].y;
+      A(n, 5) = w[n] * W[n] * pB[n].y;
+      A(n, 6) = w[n] * W[n] * pA[n].x;
+      A(n, 7) = w[n] * W[n] * pA[n].y;
+      A(n, 8) = w[n] * W[n] * 1;
+
+    }
+
+    JacobiSVD<MatrixXf> AS(A, ComputeFullV);
+    VectorXf f = AS.matrixV().col(8);
+
+    F <<  f(0), f(1), f(2),
+          f(3), f(4), f(5),
+          f(6), f(7), f(8);
+
+    JacobiSVD<Matrix3f> FS(F, ComputeFullU | ComputeFullV);
+    Vector3f S = FS.singularValues();
+    S(2) = 0;
+    F = FS.matrixU() * S.asDiagonal() * FS.matrixV().transpose();
+
+  }
+
+  F = HB.transpose() * F * HA;
+  F /= F(2,2);
+
+  return F;
+
+}
+
 // OpenCV Implementation of LMEDS (for now)
 
 Matrix3f F_LMEDS( vector<vec2> A, vector<vec2> B ){

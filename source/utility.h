@@ -36,9 +36,9 @@ bool intriangle( glm::vec2 p, glm::ivec4 t, std::vector<glm::vec2>& v){
 	if(length(v[t.z] - v[t.x]) == 0) return false;
 
 	glm::vec3 s = barycentric(p, t, v);
-	if(s.x < 0 || s.x > 1) return false;
-	if(s.y < 0 || s.y > 1) return false;
-	if(s.z < 0 || s.z > 1) return false;
+	if(s.x <= 0 || s.x >= 1) return false;
+	if(s.y <= 0 || s.y >= 1) return false;
+	if(s.z <= 0 || s.z >= 1) return false;
 	return true;
 
 }

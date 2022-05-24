@@ -1,6 +1,7 @@
 #include <TinyEngine/TinyEngine>
 #include <TinyEngine/image>
 #include <TinyEngine/color>
+#include <TinyEngine/parse>
 
 #include "../../source/triangulate.h"
 #include "../../source/io.h"
@@ -12,29 +13,36 @@ using namespace glm;
 
 int main( int argc, char* args[] ) {
 
+	parse::get(argc, args);
 
-		if(argc < 2){
-			cout<<"Please specify an input folder."<<endl;
-			exit(0);
-		}
-		else{
+	string outfolder;
+	if(!parse::option.contains("o")){
+		cout<<"Please specify an output folder with -o."<<endl;
+		exit(0);
+	}
+	else{
+		outfolder = parse::option["o"];
+		if(!boost::filesystem::is_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder))
+			boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
+	}
 
-			string outfolder = args[1];
-			if(!boost::filesystem::is_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder)){
-				cout<<"Not a directory"<<endl;
-				exit(0);
-			}
+	SDL_Surface* IMG = NULL;
+	if(!parse::option.contains("i")){
+		cout<<"Please specify an input image with -i."<<endl;
+		exit(0);
+	}
+	else IMG = IMG_Load(parse::option["i"].c_str());
+	if(IMG == NULL){
+		cout<<"Failed to load image."<<endl;
+		exit(0);
+	}
 
-		}
-
-		string outfolder = args[1];
-
-	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
+	glDisable(GL_CULL_FACE);
 
-	Tiny::window("Energy Based Triangulation Warping, Nicholas Mcdonald 2022", 960/1.5, 540/1.5);
-	tri::RATIO = 9.6/5.4;
+	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
 	bool paused = true;
 	bool donext = false;
@@ -50,7 +58,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("../../resource/tposeB.png"));		//Load Texture with Image
+	Texture tex(IMG);		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	vector<int> importlist = {
@@ -74,9 +82,6 @@ int main( int argc, char* args[] ) {
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
-
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
 
 	// Shaders and Buffers
 

@@ -23,7 +23,8 @@ int main( int argc, char* args[] ) {
 	}
 	else{
 		outfolder = parse::option["o"];
-		boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
+		if(!boost::filesystem::is_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder))
+			boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
 	}
 
 	SDL_Surface* IMG = NULL;

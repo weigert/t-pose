@@ -93,6 +93,11 @@ struct triangulation {
 	bool split( int ta );				// Split Triangle
 	bool optimize();						// Optimization Procedure Wrapper
 
+	// Warping
+
+	void warp( vector<vec2>& points );
+	void reversewarp( vector<vec2>& points );
+
 	// IO Functions
 
 	void read( string file, bool warp );
@@ -455,8 +460,71 @@ bool triangulation::split( int ta ){
 	NT += 2;
 	NP += 1;
 
-//	cout<<"SPLIT "<<ta<<endl;
+	cout<<"SPLIT "<<ta<<endl;
 	return true;
+
+}
+
+/*
+================================================================================
+														Triangulation Warping
+================================================================================
+*/
+
+void triangulation::warp( vector<vec2>& npoints){
+
+	if(triangles.empty())	// Can't Warp
+		return;
+
+	if(points.empty() || originpoints.empty())
+		return;
+
+	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
+
+		if(boundary(npoints[i]))
+			continue;
+
+		for(auto& t: triangles){
+
+			if(!intriangle(npoints[i], t, originpoints))
+				continue;
+
+			npoints[i] = cartesian(barycentric(npoints[i], t, originpoints), t, points);
+			break;
+
+		}
+
+	}
+
+}
+
+void triangulation::reversewarp( vector<vec2>& npoints){
+
+	if(triangles.empty())	// Can't Warp
+		return;
+
+	if(points.empty() || originpoints.empty())
+		return;
+
+	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
+
+		if(boundary(npoints[i]))
+			continue;
+
+		for(auto& t: triangles){
+
+		//	if(boundary(t) > 0)
+		//		continue;
+
+			if(!intriangle(npoints[i], t, points))
+				continue;
+
+			npoints[i] = cartesian(barycentric(npoints[i], t, points), t, originpoints);
+			break;
+
+		}
+
+	}
 
 }
 
@@ -621,8 +689,8 @@ int maxerrid( tri::triangulation* tr ){
 	maxerr = 0;
 	int tta = -1;
 	for(size_t i = 0; i < tr->NT; i++){
-		if(cn[i] == 0) continue;
-		if(cn[i] <= 50) continue;
+		if(cn[i] <= 0) continue;
+	//	if(cn[i] <= 50) continue;
 		float err = 0.0f;
 		err += terr[i];
 		err += perr[tr->triangles[i].x];
@@ -691,7 +759,7 @@ void triangulation::write( string file, bool normalize = true ){
 
 // Import a Triangulation
 
-void triangulation::read( string file, bool warp = true ){
+void triangulation::read( string file, bool dowarp = true ){
 
 	cout<<"Importing from file "<<file<<endl;
 	ifstream in(file, ios::in);
@@ -728,23 +796,7 @@ void triangulation::read( string file, bool warp = true ){
 
 	// Check for Warping
 
-	if(!triangles.empty() && warp)
-	for(size_t i = 0; i < npoints.size(); i++){		//Iterate over new Points
-
-		if(boundary(npoints[i]))
-			continue;
-
-		for(auto& t: triangles){
-
-			if(!intriangle(npoints[i], t, originpoints))
-				continue;
-
-			npoints[i] = cartesian(barycentric(npoints[i], t, originpoints), t, points);
-			break;
-
-		}
-
-	}
+	if(dowarp) warp(npoints);
 
 	points = npoints;
 	originpoints = noriginpoints;
