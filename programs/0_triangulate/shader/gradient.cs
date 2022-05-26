@@ -10,11 +10,6 @@ layout (std430, binding = 4) buffer tenergy {
   int ten[];
 };
 
-layout (std430, binding = 5) buffer penergy {
-  int pen[];
-};
-
-
 layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };

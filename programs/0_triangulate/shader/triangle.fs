@@ -12,10 +12,6 @@ layout (std430, binding = 4) buffer tenergy {
   int ten[];
 };
 
-layout (std430, binding = 5) buffer penergy {
-  int pen[];
-};
-
 uniform sampler2D imageTexture;
 uniform int mode;
 
@@ -39,11 +35,10 @@ void main(){
   }
 
   if( mode == 1 ){  // Accumulate Energy
-
-    if(cn[vs_out.index] > 0){
-      vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb/cn[vs_out.index]);
-      atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
-    }
+    
+    vec3 d = vec3(0);
+    if(cn[vs_out.index] > 0) d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb/cn[vs_out.index]);
+    atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
 
   }
 

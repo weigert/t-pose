@@ -31,7 +31,7 @@
 
 // Take the triangles and sort them by their energy??
 
-if( tri::geterr(&tr) < 1E-3 ){
+if( tri::geterr(&tr) < 1E-4 ){
 
   struct setsort {
     bool operator () (const std::pair<int, float>& lhs, const std::pair<int, float>& rhs) const {

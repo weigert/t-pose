@@ -15,37 +15,64 @@ int main( int argc, char* args[] ) {
 
 	parse::get(argc, args);
 
-	string outfolder;
-	if(!parse::option.contains("o")){
-		cout<<"Please specify an output folder with -o."<<endl;
+	string outa;
+	if(!parse::option.contains("oa")){
+		cout<<"Please specify output folder A with -oa."<<endl;
 		exit(0);
 	}
 	else{
-		outfolder = parse::option["o"];
-		if(!boost::filesystem::is_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder))
-			boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outfolder);
+		outa = parse::option["oa"];
+		if(!boost::filesystem::is_directory(boost::filesystem::current_path()/".."/".."/"output"/outa))
+			boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outa);
 	}
 
-	SDL_Surface* IMG = NULL;
-	if(!parse::option.contains("i")){
-		cout<<"Please specify an input image with -i."<<endl;
+	string outb;
+	if(!parse::option.contains("ob")){
+		cout<<"Please specify output folder B with -ob."<<endl;
 		exit(0);
 	}
-	else IMG = IMG_Load(parse::option["i"].c_str());
-	if(IMG == NULL){
+	else{
+		outb = parse::option["ob"];
+		if(!boost::filesystem::is_directory(boost::filesystem::current_path()/".."/".."/"output"/outb))
+			boost::filesystem::create_directory(boost::filesystem::current_path()/".."/".."/"output"/outb);
+	}
+
+	SDL_Surface* IMGA = NULL;
+	if(!parse::option.contains("ia")){
+		cout<<"Please specify an input image A with -ia."<<endl;
+		exit(0);
+	}
+	else IMGA = IMG_Load(parse::option["ia"].c_str());
+	if(IMGA == NULL){
 		cout<<"Failed to load image."<<endl;
+		exit(0);
+	}
+
+	SDL_Surface* IMGB = NULL;
+	if(!parse::option.contains("ib")){
+		cout<<"Please specify an input image B with -ib."<<endl;
+		exit(0);
+	}
+	else IMGB = IMG_Load(parse::option["ib"].c_str());
+	if(IMGB == NULL){
+		cout<<"Failed to load image."<<endl;
+		exit(0);
+	}
+
+	if(IMGA->w != IMGB->w || IMGA->h != IMGB->h){
+		cout<<"Images don't have the same dimension"<<endl;
 		exit(0);
 	}
 
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMGA->w/1.5, IMGA->h/1.5);
 	glDisable(GL_CULL_FACE);
 
-	tri::RATIO = (float)IMG->w/(float)IMG->h;
+	tri::RATIO = (float)IMGA->w/(float)IMGA->h;
 
 	bool paused = true;
-	bool donext = false;
+	bool viewlines = false;
 
 	Tiny::event.handler = [&](){
 
@@ -53,42 +80,17 @@ int main( int argc, char* args[] ) {
 			paused = !paused;
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
-			donext = true;
+			viewlines = !viewlines;
 
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(IMG);		//Load Texture with Image
-	Square2D flat;																						//Create Primitive Model
-
-	vector<int> importlist = {
-		1500,
-		1400,
-		1300,
-		1200,
-		1100,
-		1000,
-		900,
-		800,
-		700,
-		600,
-		500,
-		400,
-		300,
-		200,
-		100,
-		50
-	};
-
-	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
-	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
+	tri::init();
 
 	// Shaders and Buffers
 
-	tri::init();
-
-
-	// Triangulation and Models
+	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
+	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
 
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
 	linestrip.bind<vec2>("points", tri::pointbuf);
@@ -124,10 +126,47 @@ int main( int argc, char* args[] ) {
 	shift.bind<ivec4>("points", tri::pointbuf);
 	shift.bind<ivec2>("gradient", tri::pgradbuf);
 
-	tri::triangulation tr("../../output/"+outfolder+"/"+to_string(importlist.back())+".tri");
-	//tri::triangulation tr(1024);
-	cout<<"Number of Triangles: "<<tr.NT<<endl;
-	tri::upload(&tr);
+	// Load Triangulations
+
+	vector<int> importlist = {
+		1500,
+		1400,
+		1300,
+		1200,
+		1100,
+		1000,
+		900,
+		800,
+		700,
+		600,
+		500,
+		400,
+		300,
+		200,
+		100,
+		50
+	};
+
+	// Load two Triangulations
+
+	bool warpA = true;
+
+	tri::triangulation trA("../../output/"+outa+"/"+to_string(importlist.back())+".tri");
+	tri::triangulation trB("../../output/"+outb+"/"+to_string(importlist.back())+".tri");
+
+	Texture texA(IMGA);		//Load Texture with Image A
+	Texture texB(IMGB);		//Load Texture with Image B
+
+	tri::triangulation* tr;
+
+	if(warpA) tr = &trA;
+	else tr = &trB;
+
+	tri::upload(tr);
+
+	// Render Objects
+
+	Square2D flat;
 
 	Triangle triangle;
 	Instance triangleinstance(&triangle);
@@ -135,89 +174,69 @@ int main( int argc, char* args[] ) {
 	TLineStrip tlinestrip;
 	Instance linestripinstance(&tlinestrip);
 
-	Model pointmesh({"in_Position"});
-	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
-	pointmesh.SIZE = tr.NP;
-
 	// Convenience Lambdas
-
-	bool dotension = true;
 
 	auto doreset = [&](){
 
 		reset.use();
-		reset.uniform("NTriangles", 13*tr.NT);
-		reset.uniform("NPoints", tr.NP);
-
-		if((13*tr.NT) > tr.NP) reset.dispatch(1 + (13*tr.NT)/1024);
-		else reset.dispatch(1 + tr.NP/1024);
-
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		reset.uniform("NTriangles", 13*tr->NT);
+		reset.uniform("NPoints", tr->NP);
+		reset.dispatch(1 + (13*tr->NT)/1024);
 
 		triangleshader.use();
-		triangleshader.texture("imageTexture", tex);		//Load Texture
+		triangleshader.texture("imageA", texA);		//Load Texture
+		triangleshader.texture("imageB", texB);		//Load Texture
+		triangleshader.uniform("warpA", warpA);
 		triangleshader.uniform("mode", 0);
-		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("KTriangles", tr->NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr->NT));
 
 	};
 
 	auto doenergy = [&](){
 
 		triangleshader.use();
-		triangleshader.texture("imageTexture", tex);
+		triangleshader.texture("imageA", texA);		//Load Texture
+		triangleshader.texture("imageB", texB);		//Load Texture
+		triangleshader.uniform("warpA", warpA);
 		triangleshader.uniform("mode", 1);
-		triangleshader.uniform("dotension", dotension);
-		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("KTriangles", tr->NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr->NT));
 
 	};
 
 	auto doshift = [&](){
 
 		gradient.use();
-		gradient.uniform("KTriangles", tr.NT);
+		gradient.uniform("KTriangles", tr->NT);
 		gradient.uniform("RATIO", tri::RATIO);
-		gradient.dispatch(1 + tr.NT/1024);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		gradient.dispatch(1 + tr->NT/1024);
 
 		shift.use();
-		shift.uniform("NPoints", tr.NP);
+		shift.uniform("NPoints", tr->NP);
 		shift.uniform("RATIO", tri::RATIO);
-		shift.dispatch(1 + tr.NP/1024);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		shift.dispatch(1 + tr->NP/1024);
 
 	};
 
 	auto draw = [&](){
 
-		/*
-		reset.use();
-		reset.uniform("NTriangles", 13*tr.NT);
-		reset.uniform("NPoints", tr.NP);
-
-		if((13*tr.NT) > tr.NP) reset.dispatch(1 + (13*tr.NT)/1024);
-		else reset.dispatch(1 + tr.NP/1024);
-
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		*/
-
 		triangleshader.use();
-		triangleshader.texture("imageTexture", tex);		//Load Texture
+		triangleshader.texture("imageA", texA);		//Load Texture
+		triangleshader.texture("imageB", texB);		//Load Texture
+		triangleshader.uniform("warpA", warpA);
 		triangleshader.uniform("mode", 2);
-		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("KTriangles", tr->NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
+		triangleinstance.render(GL_TRIANGLE_STRIP, tr->NT);
 
-//		point.use();
-//		point.uniform("RATIO", tri::RATIO);
-//		pointmesh.render(GL_POINTS);
-
-		linestrip.use();
-		linestrip.uniform("RATIO", tri::RATIO);
-		linestripinstance.render(GL_LINE_STRIP, tr.NT);
+		if(viewlines){
+			linestrip.use();
+			linestrip.uniform("RATIO", tri::RATIO);
+			linestripinstance.render(GL_LINE_STRIP, tr->NT);
+		}
 
 	};
 
@@ -227,10 +246,12 @@ int main( int argc, char* args[] ) {
 	Tiny::view.pipeline = [&](){
 
 		Tiny::view.target(color::black);				//Target Main Screen
-
 		draw();
 
 	};
+
+	int NWARPA = 0;
+	int NWARPB = 0;
 
 	Tiny::loop([&](){
 
@@ -244,55 +265,77 @@ int main( int argc, char* args[] ) {
 
 		// Retrieve Data from Compute Shader
 
-		tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
-		tri::penergybuf->retrieve(tr.NP, tri::perr);
-		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
-		tri::pointbuf->retrieve(tr.points);
+		tri::tenergybuf->retrieve((13*tr->NT), tri::terr);
+		tri::penergybuf->retrieve(tr->NP, tri::perr);
+		tri::tcolnumbuf->retrieve((13*tr->NT), tri::cn);
+		tri::pointbuf->retrieve(tr->points);
 
-		cout<<tri::perr[0]<<endl;
-		cout<<tri::terr[0]<<endl;
+		if( tri::geterr(tr) < 1E-6 ){
 
-	//	if(donext){
-		if( tri::geterr(&tr) < 1E-6 ){
+			// Flip the Warp
 
-			dotension = !dotension;
-			if(!dotension) return;
+			if(warpA){
 
-			donext = false;
-			cout<<"RETRIANGULATE"<<endl;
-
-		//	paused = true;
-
-			if(!importlist.empty()){
-
-				// Output
-
-				tr.write("../../output/"+outfolder+"/"+to_string(importlist.back())+".warp.tri", false);
-				io::writeenergy(&tr, "../../output/"+outfolder+"/energy"+to_string(importlist.back())+".txt");
-
-				// Input
-				importlist.pop_back();
-
-				tr.read("../../output/"+outfolder+"/"+to_string(importlist.back())+".tri");
-				tri::upload(&tr);
-
-				doreset();
-				doenergy();
-
-				draw();
+				trB.points = trB.originpoints;
+				trA.reversewarp( trB.points );
+				NWARPA++;
 
 			}
 
-			else{
+			else {
 
-				tr.write("../../output/"+outfolder+"/"+to_string(importlist.back())+".warp.tri", false);
-				io::writeenergy(&tr, "../../output/"+outfolder+"/energy"+to_string(importlist.back())+".txt");
+				trA.points = trA.originpoints;
+				trB.reversewarp( trA.points );
+				NWARPB++;
 
-				// Output the Triangulation (With Energy)
+			}
+
+			warpA = !warpA;
+
+			if(warpA) tr = &trA;
+			else tr = &trB;
+
+			// Check for Warp Count
+
+			if(NWARPA < 3 && NWARPB < 3){
+				tri::upload(tr);
+				return;
+			}
+
+			// Re-Load Both
+
+			NWARPA = 0; NWARPB = 0;
+
+			// Finished: Export
+
+			if(importlist.empty()){
+
 				Tiny::event.quit = true;
+
+				trA.write("../../output/"+outa+"/"+to_string(importlist.back())+".warp.tri", false);
+//				io::writeenergy(&trA, "../../output/"+outa+"/energy"+to_string(importlist.back())+".txt");
+
+				trB.write("../../output/"+outb+"/"+to_string(importlist.back())+".warp.tri", false);
+//				io::writeenergy(&trB, "../../output/"+outb+"/energy"+to_string(importlist.back())+".txt");
+
 				return;
 
 			}
+
+			// Output
+
+			trA.write("../../output/"+outa+"/"+to_string(importlist.back())+".warp.tri", false);
+//			io::writeenergy(&trA, "../../output/"+outa+"/energy"+to_string(importlist.back())+".txt");
+
+			trB.write("../../output/"+outb+"/"+to_string(importlist.back())+".warp.tri", false);
+//			io::writeenergy(&trB, "../../output/"+outb+"/energy"+to_string(importlist.back())+".txt");
+
+			importlist.pop_back();
+
+			trA.read("../../output/"+outa+"/"+to_string(importlist.back())+".tri");
+			trB.read("../../output/"+outb+"/"+to_string(importlist.back())+".tri");
+
+			tri::upload(tr);
 
 		}
 

@@ -85,10 +85,15 @@ struct triangulation {
 	static bool boundary( vec2 p );
 	int boundary( int t );
 
-	// Topological Modifications
+	// Triangulation Modifiers
+
+	bool eraset( int t, bool );	// Erase Triangle (with Boundary Half-Edge alteration)
+	bool erasep( int p );				// Erase Point
+
+	// Compound Topological Modifications
 
 	bool prune( int ta );				// Prune Boundary Triangle
-	bool flip( int ha );				// Flip Triangulation Edge
+	bool flip( int ha, float );	// Flip Triangulation Edge (with Minangle)
 	bool collapse( int ha );		// Collapse Triangulation Edge
 	bool split( int ta );				// Split Triangle
 	bool optimize();						// Optimization Procedure Wrapper
@@ -106,6 +111,70 @@ struct triangulation {
 };
 
 size_t triangulation::MAXT = (2 << 18);
+
+/*
+================================================================================
+												Triangulation Modifiers
+================================================================================
+*/
+
+bool triangulation::eraset( int t, bool adjusth = true ){
+
+	// Sanity Checks
+
+	if(t >= triangles.size())
+		return false;
+
+	if( adjusth ){	// Whether to adjust the exterior half-edges
+
+		// Get Triangle Exterior Half-Edges
+
+		int h0 = halfedges[3*t+0];
+		int h1 = halfedges[3*t+1];
+		int h2 = halfedges[3*t+2];
+
+		// Remove References
+
+		if(h0 >= 0) halfedges[h0] = -1;
+		if(h1 >= 0) halfedges[h1] = -1;
+		if(h2 >= 0) halfedges[h2] = -1;
+
+	}
+
+	// Delete the Triangle, DONT Delete Vertices
+
+	triangles.erase( triangles.begin() + t );
+	halfedges.erase( halfedges.begin() + 3*t, halfedges.begin() + 3*(t + 1) );
+
+	// Fix Half-Edge Indexing
+
+	for(auto& h: halfedges)
+		if(h >= 3*(t+1)) h -= 3;
+
+	NT--;
+
+	return true;
+
+}
+
+bool triangulation::erasep( int p ){
+
+	if(p >= points.size())
+		return false;
+
+	points.erase( points.begin() + p );
+
+	for(auto& t: triangles){
+		if( t.x >= p ) t.x--;
+		if( t.y >= p ) t.y--;
+		if( t.z >= p ) t.z--;
+	}
+
+	NP--;
+
+	return true;
+
+}
 
 /*
 ================================================================================
@@ -193,37 +262,17 @@ bool triangulation::prune( int ta ){
 	if(angle(3*ta+1) > 0 && angle(3*ta+1) < PI) return false;
 	if(angle(3*ta+2) > 0 && angle(3*ta+2) < PI) return false;
 
-	// Remove References
+	// Erase
 
-	if(ta0 >= 0) halfedges[ta0] = -1;
-	if(ta1 >= 0) halfedges[ta1] = -1;
-	if(ta2 >= 0) halfedges[ta2] = -1;
-
-	// Delete the Triangle
-	// Note that we don't actually delete any vertices!
-
-	triangles.erase(triangles.begin() + ta);
-	halfedges.erase(halfedges.begin() + 3*ta, halfedges.begin() + 3*(ta + 1));
-
-	// Fix the Indexing!
-
-	for(auto& h: halfedges){
-
-		int th = h;
-		if(th >= 3*(ta+1)) h -= 3;
-
-	}
-
-	NT--;
-
-	cout<<"PRUNED"<<endl;
-	return true;
+	return eraset( ta );
 
 }
 
 // Delaunay Flipping
 
-bool triangulation::flip( int ha ){
+bool triangulation::flip( int ha, float minangle = PI ){
+
+	if(ha < 0) return false;
 
 	int hb = halfedges[ha];		// Opposing Half-Edge
 	int ta = ha/3;						// First Triangle
@@ -231,10 +280,27 @@ bool triangulation::flip( int ha ){
 
 	if(hb < 0)	return false;	// No Opposing Half-Edge
 
+	// Confirm Convexity: Two-Line Segments Intersect
+
+	const function<bool(vec2, vec2, vec2)> ccw = [](vec2 A, vec2 B, vec2 C){
+		return (C.y-A.y) * (B.x-A.x) > (B.y-A.y) * (C.x-A.x);
+	};
+
+	vec2 A = points[triangles[ta][(ha+0)%3]];
+	vec2 B = points[triangles[tb][(hb+0)%3]];
+
+	vec2 C = points[triangles[ta][(ha+2)%3]];
+	vec2 D = points[triangles[tb][(hb+2)%3]];
+
+	if(ccw(A,C,D) == ccw(B,C,D) || ccw(A,B,C) == ccw(A,B,D))
+		return false;
+
+	// Continue...
+
 	float aa = angle(ha);
 	float ab = angle(hb);
 
-	if(aa + ab < PI)
+	if(aa + ab < minangle)
 		return false;
 
 	if(aa <= 1E-8 || ab <= 1E-8)
@@ -283,7 +349,6 @@ bool triangulation::flip( int ha ){
 	triangles[tb][(hb+1)%3] = tcb[(hb+2)%3];
 	triangles[tb][(hb+2)%3] = tca[(ha+1)%3];
 
-	//cout<<"FLIPPED"<<endl;
 	return true;
 
 }
@@ -292,31 +357,60 @@ bool triangulation::flip( int ha ){
 
 bool triangulation::collapse( int ha ){
 
-	int hb = halfedges[ha];		// Opposing Half-Edge
+	if(ha < 0) return false;  // Non-Half-Edge
 	int ta = ha/3;						// First Triangle
-	int tb = hb/3;						// Second Triangle
-
-	if(hb < 0)	return false; // No Opposing Half-Edge
 
 	int ia = triangles[ta][(ha+0)%3];
-	int ib = triangles[tb][(hb+0)%3];
+	int ib = triangles[ta][(ha+1)%3];
 
 	if(length(points[ia] - points[ib]) > 0.01)
 		return false;
 
-	// Add new Point, with boundary checking!
-
 	vec2 vn;
-	if(boundary(points[ia]) && boundary(points[ib]))
+	if(boundary(points[ia]) && boundary(points[ib])){
 		vn = 0.5f*(points[ia] + points[ib]);
-	else if(boundary(points[ia])) vn = points[ia];
-	else if(boundary(points[ib])) vn = points[ib];
+	}
+	else if(boundary(points[ia])){
+		vn = points[ia];
+	}
+	else if(boundary(points[ib])){
+		vn = points[ib];
+	}
 	else 	vn = 0.5f*(points[ia] + points[ib]);
 
 	int in = points.size();
 	points.push_back(vn);
+	NP++;
 
-	// Adjust all Assignments to the Vertices
+	// Retrieve Exterior Half-Edge Indices
+
+	int ta1 = halfedges[3*ta+(ha+1)%3];
+	int ta2 = halfedges[3*ta+(ha+2)%3];
+	if(ta1 >= 0) halfedges[ta1] = ta2;
+	if(ta2 >= 0) halfedges[ta2] = ta1;
+
+	// Other Triangle to Delete!
+
+	int hb = halfedges[ha];		// Opposing Half-Edge
+	int tb = hb/3;						// Second Triangle
+	if(hb >= 0){
+
+		int tb1 = halfedges[3*tb+(hb+1)%3];
+		int tb2 = halfedges[3*tb+(hb+2)%3];
+		if(tb1 >= 0) halfedges[tb1] = tb2;
+		if(tb2 >= 0) halfedges[tb2] = tb1;
+
+		// Erase the Points, Halfedges, Triangles
+
+		eraset( ta, false );
+		if(ta < tb) tb--;
+		eraset( tb, false );
+
+	}
+
+	else eraset( ta, false );
+
+	// Adcjust all Assignments to the Vertices
 
 	for(auto& t: triangles){
 
@@ -326,84 +420,10 @@ bool triangulation::collapse( int ha ){
 
 	}
 
-	// Retrieve Exterior Half-Edge Indices
+	erasep( ia );
+	if(ia < ib) ib--;
+	erasep( ib );
 
-	int ta1 = halfedges[3*ta+(ha+1)%3];
-	int ta2 = halfedges[3*ta+(ha+2)%3];
-
-	int tb1 = halfedges[3*tb+(hb+1)%3];
-	int tb2 = halfedges[3*tb+(hb+2)%3];
-
-	// Adjust Exterior Half-Edges
-
-	if(ta1 >= 0) halfedges[ta1] = ta2;
-	if(ta2 >= 0) halfedges[ta2] = ta1;
-
-	if(tb1 >= 0) halfedges[tb1] = tb2;
-	if(tb2 >= 0) halfedges[tb2] = tb1;
-
-	// Erase the Points, Halfedges, Triangles
-
-	if(ta > tb){
-
-		triangles.erase(triangles.begin() + ta);
-		triangles.erase(triangles.begin() + tb);
-
-		halfedges.erase(halfedges.begin() + 3*ta, halfedges.begin() + 3*(ta + 1));
-		halfedges.erase(halfedges.begin() + 3*tb, halfedges.begin() + 3*(tb + 1));
-
-	}
-
-	else {
-
-		triangles.erase(triangles.begin() + tb);
-		triangles.erase(triangles.begin() + ta);
-
-		halfedges.erase(halfedges.begin() + 3*tb, halfedges.begin() + 3*(tb + 1));
-		halfedges.erase(halfedges.begin() + 3*ta, halfedges.begin() + 3*(ta + 1));
-
-	}
-
-	if(ia > ib){
-
-		points.erase(points.begin()+ia);
-		points.erase(points.begin()+ib);
-
-	}
-
-	else {
-
-		points.erase(points.begin()+ib);
-		points.erase(points.begin()+ia);
-
-	}
-
-	// Fix the Indexing!
-
-	for(auto& t: triangles){
-
-		ivec4 tt = t;
-		if(tt.x >= ia) t.x--;
-		if(tt.y >= ia) t.y--;
-		if(tt.z >= ia) t.z--;
-		if(tt.x >= ib) t.x--;
-		if(tt.y >= ib) t.y--;
-		if(tt.z >= ib) t.z--;
-
-	}
-
-	for(auto& h: halfedges){
-
-		int th = h;
-		if(th >= 3*(ta+1)) h -= 3;
-		if(th >= 3*(tb+1)) h -= 3;
-
-	}
-
-	NT -= 2;
-	NP -= 1;
-
-	cout<<"COLLAPSED"<<endl;
 	return true;
 
 }
@@ -460,7 +480,6 @@ bool triangulation::split( int ta ){
 	NT += 2;
 	NP += 1;
 
-	cout<<"SPLIT "<<ta<<endl;
 	return true;
 
 }
@@ -543,8 +562,6 @@ void triangulation::reversewarp( vector<vec2>& npoints){
 */
 
 bool triangulation::optimize(){
-
-	// cout<<"OPTIMIZE"<<endl;
 
 	// Prune Flat Boundary Triangles
 
@@ -681,6 +698,29 @@ float geterr( tri::triangulation* tr ){
 	toterr = newerr;
 
 	return abs(relerr);
+
+}
+
+float gettoterr( tri::triangulation* tr ){
+
+	maxerr = 0.0f;
+	newerr = 0.0f;
+
+	for(size_t i = 0; i < tr->NT; i++){
+		float err = 0.0f;
+		err += terr[i];
+	//	err += perr[tr->triangles[i].x];
+	//	err += perr[tr->triangles[i].y];
+	//	err += perr[tr->triangles[i].z];
+		if(sqrt(err) >= maxerr)
+			maxerr = sqrt(err);
+		newerr += err;
+	}
+
+	relerr = (toterr - newerr)/toterr;
+	toterr = newerr;
+
+	return abs(toterr);
 
 }
 

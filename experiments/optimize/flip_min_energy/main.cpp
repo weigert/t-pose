@@ -34,7 +34,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("../../../resource/imageA.png"));		//Load Texture with Image
+	Texture tex(image::load("../../../resource/imageB.png"));		//Load Texture with Image
 	Square2D flat;																					//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
@@ -142,7 +142,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 2);
-		triangleshader.uniform("K", tr.NT);
+		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 

@@ -20,7 +20,10 @@ layout (std430, binding = 5) buffer penergy {
   int pen[];
 };
 
-uniform sampler2D imageTexture;
+uniform sampler2D imageA;
+uniform sampler2D imageB;
+
+uniform bool warpA;
 uniform int mode;
 
 in VS_OUT {
@@ -42,7 +45,9 @@ void main(){
 
   if( mode == 1 ){
 
-    vec3 d = 255*texture(imageTexture, vs_out.position).rgb - vec3(ca[vs_out.index].rgb);
+    vec3 d = vec3(0);
+    if(!warpA) d = 255*texture(imageA, vs_out.position).rgb - vec3(ca[vs_out.index].rgb);
+    else  d = 255*texture(imageB, vs_out.position).rgb - vec3(ca[vs_out.index].rgb);
     atomicAdd(ten[vs_out.index], int(0.5*dot(d, d)));
 
   }
@@ -50,6 +55,8 @@ void main(){
   // Display
 
   if( mode == 2 ){
+
+    /*
 
     float TEN = sqrt(float(ten[vs_out.index])/cn[vs_out.index])/255.0f;
     float PEN = 0.0f;
@@ -62,6 +69,7 @@ void main(){
 
     if(abs(TEN) < abs(PEN/200000)) fragColor = vec4(1,0,0,1);
     else fragColor = vec4(0,0,1,1);
+    */
 
     fragColor = vec4(vec3(ca[vs_out.index].rgb)/255, 1);
 

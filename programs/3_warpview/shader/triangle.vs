@@ -25,7 +25,7 @@ out VS_OUT {
 
 uniform float RATIO;
 uniform int KTriangles;
-float s = 0;
+uniform float s;
 
 void main() {
 

@@ -6,6 +6,9 @@
 #include "../../source/triangulate.h"
 
 #include <boost/filesystem.hpp>
+#include <set>
+#include <map>
+#include <iomanip>
 
 using namespace std;
 using namespace glm;
@@ -42,17 +45,23 @@ int main( int argc, char* args[] ) {
 
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
-	glDisable(GL_CULL_FACE);
 
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
 	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
+	glDisable(GL_CULL_FACE);
+
 	bool paused = true;
+	bool viewlines = false;
+
 	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
 			paused = !paused;
+
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
+		viewlines = !viewlines;
 
 	};
 
@@ -92,10 +101,9 @@ int main( int argc, char* args[] ) {
 	reset.bind<ivec2>("gradient", tri::pgradbuf);
 	reset.bind<int>("nring", tri::tnringbuf);
 
-	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "penergy", "gradient"});
+	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
 	gradient.bind<int>("tenergy", tri::tenergybuf);
-	gradient.bind<int>("penergy", tri::penergybuf);
 	gradient.bind<ivec2>("gradient", tri::pgradbuf);
 
 	Compute shift({"shader/shift.cs"}, {"points", "gradient"});
@@ -153,13 +161,11 @@ int main( int argc, char* args[] ) {
 		gradient.uniform("KTriangles", tr.NT);
 		gradient.uniform("RATIO", tri::RATIO);
 		gradient.dispatch(1 + tr.NT/1024);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		shift.use();
 		shift.uniform("NPoints", tr.NP);
 		shift.uniform("RATIO", tri::RATIO);
 		shift.dispatch(1 + tr.NP/1024);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 	};
 
@@ -176,9 +182,11 @@ int main( int argc, char* args[] ) {
 	//	point.uniform("RATIO", tri::RATIO);
 	//	pointmesh.render(GL_POINTS, tr.NT);
 
-	//	linestrip.use();
-	//	linestrip.uniform("RATIO", tri::RATIO);
-	//p	linestripinstance.render(GL_LINE_STRIP, tr.NT);
+		if(viewlines){
+			linestrip.use();
+			linestrip.uniform("RATIO", tri::RATIO);
+			linestripinstance.render(GL_LINE_STRIP, tr.NT);
+		}
 
 	};
 
@@ -249,53 +257,125 @@ int main( int argc, char* args[] ) {
 				exportlist.pop_back();
 			}
 
-			int tta = tri::maxerrid(&tr);
-			float curmaxerr = tri::maxerr;
+			struct setsort {
+		    bool operator () (const std::pair<int, float>& lhs, const std::pair<int, float>& rhs) const {
+		        return lhs.second > rhs.second;
+		     }
+		  };
 
-			while(tta >= 0 && tr.split(tta)){
+		  std::set<std::pair<int, float>, setsort> hset;
+		  for(int t = 0; t < tr.triangles.size(); t++){
 
-				cout<<"NT: "<<tr.NT<<endl;
+		    if( tr.halfedges[ 3*t + 0 ] >= 0 )
+		      hset.emplace( 3*t + 0, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 0 ]/3] );
+		    if( tr.halfedges[ 3*t + 1 ] >= 0 )
+		      hset.emplace( 3*t + 1, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 1 ]/3] );
+		    if( tr.halfedges[ 3*t + 2 ] >= 0 )
+		      hset.emplace( 3*t + 2, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 2 ]/3] );
 
-				updated = true;
-				break;
+		  }
 
-				/*
+		  std::set<int> nflipset;         // Halfedges NOT to flip!
+		  std::map<int, float> hflipset;  // Halfedges to Flip
 
-				tr.optimize();
+			// Iterate over the sorted triangles
 
-				tri::upload( &tr, false );
-				computecolors();
-				doenergy();
+		  for(auto& h: hset){
 
-				tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
-				tri::penergybuf->retrieve((13*tr.NT), tri::perr);
-				tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
-				tri::pointbuf->retrieve(tr.points);
-				tta = tri::maxerrid(&tr);
+		    if(nflipset.contains(h.first))  // Non-Flip Halfedge
+		      continue;
 
+		    if( tr.halfedges[h.first] < 0 ) // No Opposing Halfedge
+		      continue;
 
-				if(tta == -1) break;
-				if(tri::maxerr <= curmaxerr)
-					break;
+		    if(nflipset.contains(tr.halfedges[h.first]))  // Opposing Half-Edge Not Flippable
+		      continue;
 
-					*/
+		    // Compute Energy for this Half-Edge Pair
 
-			//		cout<<tri::maxerr<<" "<<curmaxerr<<endl;
-			//	curmaxerr = tri::maxerr;
+		    hflipset[ h.first ] = h.second;
 
-				// Necessary if we split more than one guy
+		    // Add all Half-Edges of Both Triangles to the Non-Flip Set
 
+		    int ta = h.first/3;
+		    int tb = tr.halfedges[ h.first ]/3;
 
+		    nflipset.emplace( 3*ta + 0 );
+		    nflipset.emplace( 3*ta + 1 );
+		    nflipset.emplace( 3*ta + 2 );
+		    nflipset.emplace( 3*tb + 0 );
+		    nflipset.emplace( 3*tb + 1 );
+		    nflipset.emplace( 3*tb + 2 );
 
-			}
+		  }
+
+		  // Flip the flip set, then check the energy, and flip those that don't work back!
+
+		  for(auto& h: hflipset)
+		    tr.flip( h.first, 0.0f );
+
+		  tri::upload(&tr, false);
+		  computecolors();
+		  doenergy();
+
+		  tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+
+		  for(auto& h: hflipset){
+
+		    if( tri::terr[ h.first/3 ] + tri::terr[ (tr.halfedges[ h.first ])/3 ] > h.second )
+		      tr.flip( h.first, 0.0f ); 	//Flip it Back, Split
+
+		  }
+
+		  tri::upload(&tr, false);
+		  computecolors();
+		  doenergy();
+		  tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+
+		  int tta = tri::maxerrid(&tr);
+		  if(tta >= 0 && tr.split(tta))
+		    updated = true;
 
 		}
 
-		if(tr.optimize())
-			updated = true;
+		// Prune Flat Boundary Triangles
 
-		if(updated)
+		for(size_t ta = 0; ta < tr.NT; ta++)
+		if(tr.boundary(ta) == 3)
+		  if(tr.prune(ta)) updated = true;
+
+		// Attempt a Delaunay Flip on a Triangle's Largest Angle
+
+		for(size_t ta = 0; ta < tr.NT; ta++){
+
+		  if(tr.angle( 3*ta + 0 ) > 0.8*tri::PI)
+		    tr.flip( 3*ta + 0, 0.0 );
+		  if(tr.angle( 3*ta + 1 ) > 0.8*tri::PI)
+		    tr.flip( 3*ta + 1, 0.0 );
+		  if(tr.angle( 3*ta + 2 ) > 0.8*tri::PI)
+		    tr.flip( 3*ta + 2, 0.0 );
+
+		}
+
+		// Collapse Small Edges
+
+		for(size_t ta = 0; ta < tr.triangles.size(); ta++){
+
+		  int ha = 3*ta + 0;
+		  float minlength = tr.hlength( ha );
+		  if(tr.hlength( ha + 1 ) < minlength)
+		    minlength = tr.hlength( ++ha );
+		  if(tr.hlength( ha + 1 ) < minlength)
+		    minlength = tr.hlength( ++ha );
+		  if(tr.collapse(ha))
+		    updated = true;
+
+		}
+
+		if(updated){
+			cout<<tr.NT<<" "<<std::setprecision(16)<<gettoterr( &tr )<<endl;
 			tri::upload(&tr, false);
+		}
 
 	});
 
