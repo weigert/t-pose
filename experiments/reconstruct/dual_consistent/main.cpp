@@ -36,7 +36,8 @@ int main( int argc, char* args[] ) {
 	cam::update();
 
 	bool paused = true;
-	bool showlines = false;
+	bool showlines = true;
+	bool showA = true;
 
 	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
@@ -49,6 +50,9 @@ int main( int argc, char* args[] ) {
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
 			showlines = !showlines;
 
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_SPACE)
+			showA = !showA;
+
 	};
 
 	tri::init();
@@ -57,15 +61,17 @@ int main( int argc, char* args[] ) {
 
 	Buffer point3Dbuf;
 	Buffer point2Dbuf;
+	Buffer dist2Dbuf;
 
 	Shader triangle3D({"shader/triangle3D.vs", "shader/triangle3D.fs"}, {"in_Position"}, {"points3D", "index", "colacc"});
 	triangle3D.bind<vec4>("points3D", &point3Dbuf);
 	triangle3D.bind<ivec4>("index", tri::trianglebuf);
 	triangle3D.bind<ivec4>("colacc", tri::tcolaccbuf);
 
-	Shader triangle2D({"shader/triangle2D.vs", "shader/triangle2D.fs"}, {"in_Position"}, {"points2D", "index"});
-//	triangle2D.bind<vec2>("points2D", &point2Dbuf);
-//	triangle2D.bind<ivec4>("index", tri::trianglebuf);
+	Shader triangle2D({"shader/triangle2D.vs", "shader/triangle2D.fs"}, {"in_Position"}, {"points2D", "index", "dist2D"});
+	triangle2D.bind<vec2>("points2D", &point2Dbuf);
+	triangle2D.bind<ivec4>("index", tri::trianglebuf);
+	triangle2D.bind<float>("dist2D", &dist2Dbuf);
 
 	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
 
@@ -104,8 +110,8 @@ int main( int argc, char* args[] ) {
 
 	// Warp the Points
 
-	trB.reversewarp(trWA.originpoints);
 	trA.reversewarp(trWB.originpoints);
+	trB.reversewarp(trWA.originpoints);
 
 	// Compute the Distance
 
@@ -141,13 +147,17 @@ int main( int argc, char* args[] ) {
 	vector<vec2> tempX, tempY;
 	vector<float> weights;
 
+	vector<float> dist2DA, dist2DB;
+
 	for(size_t i = 0; i < trA.NP; i++){
+
+		dist2DA.push_back(length(trWA.originpoints[i] - trA.points[i]));
 
 		vec2 pX = trA.originpoints[i];
 		vec2 pY = trA.points[i];
 
-		tempX.emplace_back(T*vec3(pX.x, pX.y, 1));
-		tempY.emplace_back(T*vec3(pY.x, pY.y, 1));
+		if(dist2DA.back() > 0.0000002)
+			continue;
 
 		if( tri::triangulation::boundary(pX)
 		||	tri::triangulation::boundary(pY) )
@@ -166,15 +176,20 @@ int main( int argc, char* args[] ) {
 		matchY.emplace_back(T*vec3(pY.x, pY.y, 1));
 		weights.emplace_back(1.0f/length(trWA.originpoints[i] - trA.points[i]));
 
-//		cout<<"W"<<weights.back()<<endl;
-
 	}
 
 	for(size_t i = 0; i < trB.NP; i++){
 
+		dist2DB.push_back(length(trWB.originpoints[i] - trB.points[i]));
+
 		vec2 pX = trB.points[i];
 		vec2 pY = trB.originpoints[i];
 
+		tempX.emplace_back(T*vec3(pX.x, pX.y, 1));
+		tempY.emplace_back(T*vec3(pY.x, pY.y, 1));
+
+		if(dist2DB.back() > 0.0000002)
+			continue;
 
 		if( tri::triangulation::boundary(pX)
 		|| 	tri::triangulation::boundary(pY) )
@@ -198,16 +213,24 @@ int main( int argc, char* args[] ) {
 	}
 
 	Matrix3f K = unp::Camera();
-	Matrix3f F = unp::F_Sampson(matchX, matchY, weights);
+//	Matrix3f F = unp::F_Sampson(matchX, matchY, weights);
 //	Matrix3f F = unp::F_LMEDS(matchX, matchY);
 //	Matrix3f F = unp::F_RANSAC(matchX, matchY);
+
+	Matrix3f F;
+	F << -0.936791,      2.24,  -26.1548,
+  1.03284,   1.77101,  -13.5179,
+  26.3407,   10.5485,         1;
+
 
 	cout<<"Fundamental Matrix: "<<F<<endl;
 
 	point3D = unp::triangulate(F, K, tempX, tempY);
 
 	point3Dbuf.fill(point3D);
-	tri::upload(&trA);
+	tri::upload(&trB);
+
+	int NT;
 
 	Tiny::view.pipeline = [&](){
 
@@ -218,21 +241,37 @@ int main( int argc, char* args[] ) {
 
 		if(showlines){
 
-			point2Dbuf.fill(trA.points);
-			tri::trianglebuf->fill(trA.triangles);
-			triangleinstance.render(GL_LINE_STRIP, trA.NT);
+			if(showA){
 
-			point2Dbuf.fill(trWA.originpoints);
-			tri::trianglebuf->fill(trWA.triangles);
-			triangleinstance.render(GL_LINE_STRIP, trWA.NT);
+				dist2Dbuf.fill(dist2DA);
 
-			point2Dbuf.fill(trB.points);
-			tri::trianglebuf->fill(trB.triangles);
-			triangleinstance.render(GL_LINE_STRIP, trB.NT);
+				point2Dbuf.fill(trA.points);
+				tri::trianglebuf->fill(trA.triangles);
+				linestripinstance.render(GL_LINE_STRIP, trA.NT);
 
-			point2Dbuf.fill(trWB.originpoints);
-			tri::trianglebuf->fill(trWB.triangles);
-			triangleinstance.render(GL_LINE_STRIP, trWB.NT);
+				point2Dbuf.fill(trWA.originpoints);
+				tri::trianglebuf->fill(trWA.triangles);
+				linestripinstance.render(GL_LINE_STRIP, trWA.NT);
+
+				NT = trA.NT;
+
+			}
+
+			else {
+
+				dist2Dbuf.fill(dist2DB);
+
+				point2Dbuf.fill(trB.points);
+				tri::trianglebuf->fill(trB.triangles);
+				linestripinstance.render(GL_LINE_STRIP, trB.NT);
+
+				point2Dbuf.fill(trWB.originpoints);
+				tri::trianglebuf->fill(trWB.triangles);
+				linestripinstance.render(GL_LINE_STRIP, trWB.NT);
+
+				NT = trB.NT;
+
+			}
 
 		}
 
@@ -242,7 +281,7 @@ int main( int argc, char* args[] ) {
 			triangle3D.uniform("RATIO", tri::RATIO);
 			triangle3D.uniform("vp", cam::vp);
 			triangle3D.uniform("model", rotate(mat4(1.0f), 3.14159265f, vec3(0,0,1)));
-			triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
+			triangleinstance.render(GL_TRIANGLE_STRIP, NT);
 
 		}
 
