@@ -44,21 +44,72 @@ void main() {
     pind = ind[TMOD].z;
 
   vec2 tpos = p[pind];    // Vertex Image-Space (-RATIO, RATIO) x, (-1, 1) y
-  const float dp = 0.05f; // Image-Space Pixel Shift
+  float dp = 0.05f; // Image-Space Pixel Shift
 
-  if(TDIV == 1 && in_Position.x > 0) tpos       += vec2(dp, 0);
-  else if(TDIV == 2 && in_Position.x > 0) tpos  -= vec2(dp, 0);
-  else if(TDIV == 3 && in_Position.x > 0) tpos  += vec2( 0,dp);
-  else if(TDIV == 4 && in_Position.x > 0) tpos  -= vec2( 0,dp);
-  else if(TDIV == 5 && in_Position.y > 0) tpos  += vec2(dp, 0);
-  else if(TDIV == 6 && in_Position.y > 0) tpos  -= vec2(dp, 0);
-  else if(TDIV == 7 && in_Position.y > 0) tpos  += vec2( 0,dp);
-  else if(TDIV == 8 && in_Position.y > 0) tpos  -= vec2( 0,dp);
-  else if(TDIV == 9 && in_Position.z > 0) tpos  += vec2(dp, 0);
-  else if(TDIV == 10 && in_Position.z > 0) tpos -= vec2(dp, 0);
-  else if(TDIV == 11 && in_Position.z > 0) tpos += vec2( 0,dp);
-  else if(TDIV == 12 && in_Position.z > 0) tpos -= vec2( 0,dp);
+  // Cooling Regiment:
 
+  // 1.: Divide by 2 as KTriangles -> 1000
+  //dp /= (1.0f + 1.0f*float(KTriangles)/1000.0f);
+
+  // 2.: Divide by 3 as KTriangles -> 1000
+  //dp /= (1.0f + 2.0f*float(KTriangles)/1000.0f);
+
+  // 3.: Divide by 10 as KTriangles -> 1000
+  dp /= (1.0f + 9.0f*float(KTriangles)/1000.0f);
+
+  // 4.: Divide by 20 as KTriangles -> 1000
+  //dp /= (1.0f + 19.0f*float(KTriangles)/1000.0f);
+
+  // 5.: Divide by 50 as KTriangles -> 1000
+  //dp /= (1.0f + 49.0f*float(KTriangles)/1000.0f);
+
+  // 6.: Scale by Size of Triangle!!
+  //dp = 0.5*0.5*abs(determinant(mat3(
+  //  p[ind[TMOD].x].x, p[ind[TMOD].x].y, 1,
+  //  p[ind[TMOD].y].x, p[ind[TMOD].y].y, 1,
+  //  p[ind[TMOD].z].x, p[ind[TMOD].z].y, 1
+  //)));
+
+  // 7.: Scale by Eigenspace Projection
+
+  /*
+  vec2 va, vb;
+  if(in_Position.x > 0){
+    va = (p[ind[TMOD].y] - p[ind[TMOD].x]);
+    vb = (p[ind[TMOD].z] - p[ind[TMOD].x]);
+  }
+  if(in_Position.y > 0){
+    va = (p[ind[TMOD].z] - p[ind[TMOD].y]);
+    vb = (p[ind[TMOD].x] - p[ind[TMOD].y]);
+  }
+  if(in_Position.z > 0){
+    va = (p[ind[TMOD].x] - p[ind[TMOD].z]);
+    vb = (p[ind[TMOD].y] - p[ind[TMOD].z]);
+  }
+  mat2 V = transpose(mat2(normalize(va), normalize(vb)));
+  mat2 L = mat2(length(va), 0, 0, length(vb));
+
+  vec2 D = V*L*inverse(V)*vec2(dp);
+
+  */
+
+  vec2 D = vec2(dp);
+
+       if(TDIV == 1 && in_Position.x > 0)   D *= vec2( 1, 0);
+  else if(TDIV == 2 && in_Position.x > 0)   D *= vec2(-1, 0);
+  else if(TDIV == 3 && in_Position.x > 0)   D *= vec2( 0, 1);
+  else if(TDIV == 4 && in_Position.x > 0)   D *= vec2( 0,-1);
+  else if(TDIV == 5 && in_Position.y > 0)   D *= vec2( 1, 0);
+  else if(TDIV == 6 && in_Position.y > 0)   D *= vec2(-1, 0);
+  else if(TDIV == 7 && in_Position.y > 0)   D *= vec2( 0, 1);
+  else if(TDIV == 8 && in_Position.y > 0)   D *= vec2( 0,-1);
+  else if(TDIV == 9 && in_Position.z > 0)   D *= vec2( 1, 0);
+  else if(TDIV == 10 && in_Position.z > 0)  D *= vec2(-1, 0);
+  else if(TDIV == 11 && in_Position.z > 0)  D *= vec2( 0, 1);
+  else if(TDIV == 12 && in_Position.z > 0)  D *= vec2( 0,-1);
+  else D *= vec2(0);
+
+  tpos += D;
   tpos.x /= RATIO;  // Position in Screen-Space (-1, 1) for x,y
 
   gl_Position = vec4(tpos, -1, 1.0f);

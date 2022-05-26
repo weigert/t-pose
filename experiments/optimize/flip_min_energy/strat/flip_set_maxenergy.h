@@ -44,21 +44,12 @@ if( tri::geterr(&tr) < 1E-3 ){
   std::set<std::pair<int, float>, setsort> hset;
   for(int t = 0; t < tr.triangles.size(); t++){
 
-  //  int ha = 3*t + 0;
-  //  float maxangle = tr.angle( ha );
-  //  if(tr.angle( ha + 1 ) > maxangle)
-  //    maxangle = tr.angle( ++ha );
-  //  if(tr.angle( ha + 1 ) > maxangle)
-  //    maxangle = tr.angle( ++ha );
-
-  // Add all Half-Edges, if they have an opposing edge, and sort by sum of triangle energies
-
-  if( tr.halfedges[ 3*t + 0 ] >= 0 )
-    hset.emplace( 3*t + 0, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 0 ]/3] );
-  if( tr.halfedges[ 3*t + 1 ] >= 0 )
-    hset.emplace( 3*t + 1, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 1 ]/3] );
-  if( tr.halfedges[ 3*t + 2 ] >= 0 )
-    hset.emplace( 3*t + 2, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 2 ]/3] );
+    if( tr.halfedges[ 3*t + 0 ] >= 0 )
+      hset.emplace( 3*t + 0, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 0 ]/3] );
+    if( tr.halfedges[ 3*t + 1 ] >= 0 )
+      hset.emplace( 3*t + 1, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 1 ]/3] );
+    if( tr.halfedges[ 3*t + 2 ] >= 0 )
+      hset.emplace( 3*t + 2, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 2 ]/3] );
 
   }
 
@@ -80,7 +71,7 @@ if( tri::geterr(&tr) < 1E-3 ){
 
     // Compute Energy for this Half-Edge Pair
 
-    hflipset[ h.first ] = tri::terr[ h.first/3 ] + tri::terr[ (tr.halfedges[ h.first ])/3 ];
+    hflipset[ h.first ] = h.second;
 
     // Add all Half-Edges of Both Triangles to the Non-Flip Set
 
@@ -135,15 +126,12 @@ if(tr.boundary(ta) == 3)
 
 for(size_t ta = 0; ta < tr.NT; ta++){
 
-  int ha = 3*ta + 0;
-  float maxangle = tr.angle( ha );
-  if(tr.angle( ha + 1 ) > maxangle)
-    maxangle = tr.angle( ++ha );
-  if(tr.angle( ha + 1 ) > maxangle)
-    maxangle = tr.angle( ++ha );
-
-  if(maxangle >= 0.9*tri::PI)
-    tr.flip(ha, 0.0);
+  if(tr.angle( 3*ta + 0 ) > 0.8*tri::PI)
+    tr.flip( 3*ta + 0, 0.0 );
+  if(tr.angle( 3*ta + 1 ) > 0.8*tri::PI)
+    tr.flip( 3*ta + 1, 0.0 );
+  if(tr.angle( 3*ta + 2 ) > 0.8*tri::PI)
+    tr.flip( 3*ta + 2, 0.0 );
 
 }
 

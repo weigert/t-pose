@@ -34,7 +34,7 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("../../../resource/imageB.png"));		//Load Texture with Image
+	Texture tex(image::load("../../../resource/imageA.png"));		//Load Texture with Image
 	Square2D flat;																					//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
@@ -192,6 +192,7 @@ int main( int argc, char* args[] ) {
 		bool updated = false;
 
 		#include "strat/flip_set_maxenergy.h"
+		//#include "strat/flip_delaunay.h"
 
 		if(updated){
 			if(tr.NT >= 1000) paused = true;
