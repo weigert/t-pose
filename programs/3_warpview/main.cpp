@@ -36,7 +36,7 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	Texture tex(image::load("../../resource/imageB.png"));		//Load Texture with Image
+	Texture tex(image::load("../../resource/shoeA.png"));		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
