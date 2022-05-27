@@ -1,6 +1,7 @@
 #include <TinyEngine/TinyEngine>
 #include <TinyEngine/image>
 #include <TinyEngine/color>
+#include <TinyEngine/parse>
 
 #include "../../source/triangulate.h"
 
@@ -9,18 +10,44 @@ using namespace std;
 
 int main( int argc, char* args[] ) {
 
-	if(argc < 3){
-		cout<<"Specify two triangulation files"<<endl;
+	parse::get(argc, args);
+
+	string outfolder;
+
+	SDL_Surface* IMG = NULL;
+	if(!parse::option.contains("i")){
+		cout<<"Please specify an input image with -i."<<endl;
 		exit(0);
+	}
+	else IMG = IMG_Load(parse::option["i"].c_str());
+	if(IMG == NULL){
+		cout<<"Failed to load image."<<endl;
+		exit(0);
+	}
+
+	string ta, tb;
+	if(!parse::option.contains("ta")){
+		cout<<"Please specify a first input triangulation with -ta."<<endl;
+		exit(0);
+	}
+	else{
+		ta = parse::option["ta"];
+	}
+
+	if(!parse::option.contains("tb")){
+		cout<<"Please specify a second input triangulation with -tb."<<endl;
+		exit(0);
+	}
+	else{
+		tb = parse::option["tb"];
 	}
 
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 960, 540);
-
-	tri::RATIO = 12.0/6.75;
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w, IMG->h);
+	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
 	bool paused = true;
 	bool showlines = false;
@@ -36,7 +63,7 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	Texture tex(image::load("../../resource/shoeA.png"));		//Load Texture with Image
+	Texture tex(IMG);		//Load Texture with Image
 	Square2D flat;																						//Create Primitive Model
 
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
@@ -69,8 +96,8 @@ int main( int argc, char* args[] ) {
 	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
 
 	tri::triangulation trA, trB;
-	trA.read(args[1], false);
-	trB.read(args[2], false);
+	trA.read(ta, false);
+	trB.read(tb, false);
 
 	tri::upload(&trB);
 	otherpointbuf.fill(trA.points);
