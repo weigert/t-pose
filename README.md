@@ -4,9 +4,11 @@
 
 Two-View Pose Estimation and Direct-Mesh Scene Reconstruction from Image Triangulation
 
-**Disclaimer**: This repository is a proof of concept / prototype for testing purposes. I am publishing it now in case anybody is interested. The methodology is still being improved and the repository is still being cleaned. The state of progress and improvements is explained below.
+The animation below was generated from only 2 images using the method described below and implemented in this repository.
 
-<img alt="Example Interpolation of a Warping between two Views" src="https://github.com/weigert/t-pose/blob/main/screenshots/interpolate.gif">
+<img alt="Example Interpolation of a Warping between two Views, with Texture Mapping" src="https://github.com/weigert/t-pose/blob/main/screenshots/warp_texture.gif">
+
+**Disclaimer**: This repository is a proof of concept / prototype for testing purposes. I am publishing it now in case anybody is interested. The methodology is still being improved and the repository is still being cleaned. The state of progress and improvements is explained below.
 
 ## Basic Concept
 
@@ -53,6 +55,8 @@ Any vertex warped by `TN(A)` -> `TN(A)'` should be warped identically by `TN(B)'
 <img alt="Two-Way Consistent Warping between two Views" src="https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif">
 
 This leads to incredibly clean warpings which accurately predict the positions of key-points as triangulation vertices.
+
+<img alt="Example Interpolation of a Warping between two Views" src="https://github.com/weigert/t-pose/blob/main/screenshots/interpolate.gif">
 
 #### Mesh Reconstruction
 
@@ -115,3 +119,7 @@ Finally, the main potential for this method comes from topological alterations d
 ## Credits
 
 Nicholas McDonald, 2022
+
+The approach to image triangulation was originally inspired by ["Stylized Image Triangulation", Kay Lawonn and Tobias Guenther (2018)](https://cgl.ethz.ch/publications/papers/paperLaw18a.php). I reimplemented the concept entirely on my own taking cues from their paper.
+
+A number of general improvements were made, including removing the dependency on geometry shaders, removing the delaunay triangulation requirement (which improved the fit greatly), and removing the one-ring energy term which shifted the vertices sufficiently to make 3D reconstruction infeasible.
