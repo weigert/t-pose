@@ -6,6 +6,8 @@ Two-View Pose Estimation and Direct-Mesh Scene Reconstruction from Image Triangu
 
 **Disclaimer**: This repository is a proof of concept / prototype for testing purposes. I am publishing it now in case anybody is interested. The methodology is still being improved and the repository is still being cleaned. The state of progress and improvements is explained below.
 
+<img alt="Example Interpolation of a Warping between two Views" src="https://github.com/weigert/t-pose/blob/main/screenshots/interpolate.gif">
+
 ## Basic Concept
 
 Surfaces of equal material and orientation typically exhibit the same color when projected in images due to lighting. Therefore, triangulations of images are natural choices for representing surface geometry.
@@ -28,11 +30,15 @@ The main algorithm consists of the following steps:
 
 Given two images, we compute a triangulation for each using a minimum energy based approach. Each triangle computes the average color of the image underneath and a cost function can be computed by the distance of the average to the true value. Vertex positions are shifted along the gradient of this cost function. This is implemented using shaders on the GPU (no geometry shaders).
 
+<img alt="Las Meninas by Diego Velazquez, Triangulated with 3000 Triangles (Surfaces Only)" src="https://github.com/weigert/t-pose/blob/main/screenshots/meninas.png" width="48%"> <img alt="Las Meninas by Diego Velazquez, Triangulated with 3000 Triangles (With Lines)" src="https://github.com/weigert/t-pose/blob/main/screenshots/meninas_lines.png" width="48%">
+
 The topology of the triangulation is optimized using a topological optimization strategy, by flipping edges, splitting triangles at their centroid, collapsing short edges and pruning flattened triangles on the domain boundary.
 
 The topological minimum energy approach leads to good approximations of the base image at various levels of detail, defining a triangulation hierarchy for which the approximation becomes increasingly detailed as the number of triangles increases.
 
 The triangulations that this system finds from zero-assumptions are very good and give clean boundaries, such that the vertices are well fit to image features.
+
+<img alt="Triangulation Animation of a Sneaker" src="https://github.com/weigert/t-pose/blob/main/screenshots/shoeA.gif">
 
 #### Warping
 
@@ -43,6 +49,8 @@ Starting from the most coarse triangulation `T0(A)` for image `A`, we can warp i
 Finally, this method can be made two-way consistent for two images `A` and `B`.
 
 Any vertex warped by `TN(A)` -> `TN(A)'` should be warped identically by `TN(B)'` -> `TN(B)`. This is enforced by making the initial condition of a warping not the forward warping of the previous more coarse step, but the reverse warping of the previous more coarse step of the other image's triangulation.
+
+<img alt="Two-Way Consistent Warping between two Views" src="https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif">
 
 This leads to incredibly clean warpings which accurately predict the positions of key-points as triangulation vertices.
 
