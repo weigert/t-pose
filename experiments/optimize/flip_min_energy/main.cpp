@@ -1,6 +1,7 @@
 #include <TinyEngine/TinyEngine>
 #include <TinyEngine/image>
 #include <TinyEngine/color>
+#include <TinyEngine/parse>
 
 #include <iomanip>
 #include <map>
@@ -13,12 +14,25 @@ using namespace glm;
 
 int main( int argc, char* args[] ) {
 
+	parse::get(argc, args);
+
+	SDL_Surface* IMG = NULL;
+	if(!parse::option.contains("i")){
+		cout<<"Please specify an input image with -i."<<endl;
+		exit(0);
+	}
+	else IMG = IMG_Load(parse::option["i"].c_str());
+	if(IMG == NULL){
+		cout<<"Failed to load image."<<endl;
+		exit(0);
+	}
+
 	Tiny::view.pointSize = 2.0f;
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 800, 450);
-	tri::RATIO = 12.0/6.75;
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5f, IMG->h/1.5f);
+	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
 	bool paused = true;
 	bool viewlines = false;
@@ -34,11 +48,9 @@ int main( int argc, char* args[] ) {
 	};
 	Tiny::view.interface = [](){};
 
-	Texture tex(image::load("../../../resource/imageB.png"));		//Load Texture with Image
+	Texture tex(IMG);		//Load Texture with Image
 	Square2D flat;																					//Create Primitive Model
-
 	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
-	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
 
 	glDisable(GL_CULL_FACE);
 
@@ -59,15 +71,6 @@ int main( int argc, char* args[] ) {
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
 	linestrip.bind<vec2>("points", tri::pointbuf);
 	linestrip.bind<ivec4>("index", tri::trianglebuf);
-
-	// SSBO Manipulation Compute Shaders (Reset / Average)
-
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "tenergy", "penergy" "gradient", "nring"});
-	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
-	reset.bind<int>("colnum", tri::tcolnumbuf);
-	reset.bind<int>("tenergy", tri::tenergybuf);
-	reset.bind<int>("penergy", tri::penergybuf);
-	reset.bind<int>("nring", tri::tnringbuf);
 
 	Compute gradient({"shader/gradient.cs"}, {"index", "energy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
@@ -98,17 +101,12 @@ int main( int argc, char* args[] ) {
 
 	auto computecolors = [&](){
 
-		reset.use();
-		reset.uniform("NTriangles", 13*tr.NT);
-		reset.uniform("NPoints", tr.NP);
-		reset.dispatch(1 + (13*tr.NT)/1024);
-
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
 		triangleshader.uniform("mode", 0);
 		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
+		triangleinstance.render(GL_TRIANGLES, (13*tr.NT));
 
 	};
 
@@ -144,11 +142,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.uniform("mode", 2);
 		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
-
-	//	point.use();
-	//	point.uniform("RATIO", RATIO);
-	//	pointmesh.render(GL_POINTS, tr.NT);
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
 
 		if(viewlines){
 			linestrip.use();
@@ -183,8 +177,8 @@ int main( int argc, char* args[] ) {
 		// Retrieve Data from Compute Shader
 
 		tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
-		tri::penergybuf->retrieve((13*tr.NT), tri::perr);
-		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
+//		tri::penergybuf->retrieve((13*tr.NT), tri::perr);
+//		tri::tcolnumbuf->retrieve((13*tr.NT), tri::cn);
 		tri::pointbuf->retrieve(tr.points);
 
 		// TOPOLOGICAL OPTIMIZATIONS

@@ -10,6 +10,18 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
+layout (std430, binding = 2) buffer colacc {
+  ivec4 ca[];
+};
+
+layout (std430, binding = 3) buffer colnum {
+  int cn[];
+};
+
+layout (std430, binding = 4) buffer tenergy {
+  int ten[];
+};
+
 layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
@@ -31,17 +43,17 @@ uniform int mode;
 
 void main() {
 
-  const int TDIV = gl_InstanceID/KTriangles;
-  const int TMOD = gl_InstanceID%KTriangles;
+  const int TDIV = gl_InstanceID/13;
+  const int TMOD = gl_InstanceID%13;
   vs_out.index = gl_InstanceID;
 
   int pind;               // Vertex Index
   if (in_Position.x > 0)
-    pind = ind[TMOD].x;
+    pind = ind[TDIV].x;
   if (in_Position.y > 0)
-    pind = ind[TMOD].y;
+    pind = ind[TDIV].y;
   if (in_Position.z > 0)
-    pind = ind[TMOD].z;
+    pind = ind[TDIV].z;
 
   vec2 tpos = p[pind];    // Vertex Image-Space (-RATIO, RATIO) x, (-1, 1) y
   float dp = 0.05f; // Image-Space Pixel Shift
@@ -95,18 +107,18 @@ void main() {
 
   vec2 D = vec2(dp);
 
-       if(TDIV == 1 && in_Position.x > 0)   D *= vec2( 1, 0);
-  else if(TDIV == 2 && in_Position.x > 0)   D *= vec2(-1, 0);
-  else if(TDIV == 3 && in_Position.x > 0)   D *= vec2( 0, 1);
-  else if(TDIV == 4 && in_Position.x > 0)   D *= vec2( 0,-1);
-  else if(TDIV == 5 && in_Position.y > 0)   D *= vec2( 1, 0);
-  else if(TDIV == 6 && in_Position.y > 0)   D *= vec2(-1, 0);
-  else if(TDIV == 7 && in_Position.y > 0)   D *= vec2( 0, 1);
-  else if(TDIV == 8 && in_Position.y > 0)   D *= vec2( 0,-1);
-  else if(TDIV == 9 && in_Position.z > 0)   D *= vec2( 1, 0);
-  else if(TDIV == 10 && in_Position.z > 0)  D *= vec2(-1, 0);
-  else if(TDIV == 11 && in_Position.z > 0)  D *= vec2( 0, 1);
-  else if(TDIV == 12 && in_Position.z > 0)  D *= vec2( 0,-1);
+       if(TMOD == 1 && in_Position.x > 0)   D *= vec2( 1, 0);
+  else if(TMOD == 2 && in_Position.x > 0)   D *= vec2(-1, 0);
+  else if(TMOD == 3 && in_Position.x > 0)   D *= vec2( 0, 1);
+  else if(TMOD == 4 && in_Position.x > 0)   D *= vec2( 0,-1);
+  else if(TMOD == 5 && in_Position.y > 0)   D *= vec2( 1, 0);
+  else if(TMOD == 6 && in_Position.y > 0)   D *= vec2(-1, 0);
+  else if(TMOD == 7 && in_Position.y > 0)   D *= vec2( 0, 1);
+  else if(TMOD == 8 && in_Position.y > 0)   D *= vec2( 0,-1);
+  else if(TMOD == 9 && in_Position.z > 0)   D *= vec2( 1, 0);
+  else if(TMOD == 10 && in_Position.z > 0)  D *= vec2(-1, 0);
+  else if(TMOD == 11 && in_Position.z > 0)  D *= vec2( 0, 1);
+  else if(TMOD == 12 && in_Position.z > 0)  D *= vec2( 0,-1);
   else D *= vec2(0);
 
   tpos += D;
@@ -115,7 +127,21 @@ void main() {
   gl_Position = vec4(tpos, -1, 1.0f);
   vs_out.position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
 
+  if(mode == 0){
+    cn[vs_out.index] = 0;
+    ca[vs_out.index] = ivec4(0);
+  }
+
+  if(mode == 1){
+    ten[vs_out.index] = 0;
+    gr[ind[TDIV].x] = ivec2(0);
+    gr[ind[TDIV].y] = ivec2(0);
+    gr[ind[TDIV].z] = ivec2(0);
+  }
+
   //Add One-Ring Energy
+
+  /*
 
   if( TDIV == 0 && mode == 0 )
     atomicAdd(nr[TMOD], 1 );    //count the n-ring! (divided by 3)
@@ -161,5 +187,7 @@ void main() {
     }
 
   }
+
+  */
 
 }

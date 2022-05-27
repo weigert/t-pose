@@ -11,14 +11,13 @@ layout (std430, binding = 6) buffer gradient {
 };
 
 uniform int NPoints;
+uniform int NTriangles;
 uniform float RATIO;
 
 void main(){
 
   const uint index = gl_GlobalInvocationID.x;
-
-  if(index < 4 || index >= NPoints)
-    return;
+  if(index >= NPoints) return;
 
   vec2 tgr = gr[index];
 
@@ -42,9 +41,15 @@ void main(){
     tgr.y = 0;
   }
 
+
+
   tgr =  0.00005 * vec2(tgr) / 256 / 256;
 //  if(abs(tgr.x) < 1E-4) tgr.x = 0;
 //  if(abs(tgr.y) < 1E-4) tgr.y = 0;
+
+//  if(NTriangles >= 3){
+//    p[index] += vec2(1.0, 1.0);
+//  }
   p[index] -=  tgr;
 
 }

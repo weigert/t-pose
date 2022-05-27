@@ -44,8 +44,11 @@ void main(){
 
   if( mode == 2 ){  // Draw Triangles
 
+    if( vs_out.index%13 == 0 )
+      fragColor = vec4(vec3(ca[vs_out.index].rgb)/cn[vs_out.index]/255, 1);
+    else discard;
+
   //  fragColor = mix(vec4(0,0,1,1), vec4(1,0,0,1), sqrt(float(en[vs_out.index]/cn[vs_out.index]))/255.0f);
-   fragColor = vec4(vec3(ca[vs_out.index].rgb)/cn[vs_out.index]/255, 1);
 
   }
 
