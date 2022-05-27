@@ -112,3 +112,7 @@ Finally, the main potential for this method comes from topological alterations d
 ## Credits
 
 Nicholas McDonald, 2022
+
+The approach to image triangulation was originally inspired by ["Stylized Image Triangulation", Kay Lawonn and Tobias Guenther (2018)](https://cgl.ethz.ch/publications/papers/paperLaw18a.php). I reimplemented the concept entirely on my own taking cues from their paper.
+
+A number of general improvements were made, including removing the dependency on geometry shaders, removing the delaunay triangulation requirement (which improved the fit greatly), and removing the one-ring energy term which shifted the vertices sufficiently to make 3D reconstruction infeasible.
