@@ -39,7 +39,6 @@ int main( int argc, char* args[] ) {
 	bool showlines = true;
 	bool showA = true;
 
-	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
 
 		cam::handler();
@@ -103,15 +102,15 @@ int main( int argc, char* args[] ) {
 
 	// Set the Warpings (Note: Origin-Points still the same!)
 
-	trA.points = trWA.points;
-	trB.points = trWB.points;
-	trWA.originpoints = trA.originpoints;
-	trWB.originpoints = trB.originpoints;
+//	trA.points = trWA.points;
+//	trB.points = trWB.points;
+//	trWA.originpoints = trA.originpoints;
+//	trWB.originpoints = trB.originpoints;
 
 	// Warp the Points
 
-	trA.reversewarp(trWB.originpoints);
-	trB.reversewarp(trWA.originpoints);
+//	trA.reversewarp(trWB.originpoints);
+//	trB.reversewarp(trWA.originpoints);
 
 	// Compute the Distance
 
@@ -150,66 +149,15 @@ int main( int argc, char* args[] ) {
 	vector<float> dist2DA, dist2DB;
 
 	for(size_t i = 0; i < trA.NP; i++){
-
-		dist2DA.push_back(length(trWA.originpoints[i] - trA.points[i]));
-
-		vec2 pX = trA.originpoints[i];
-		vec2 pY = trA.points[i];
-
-		if(dist2DA.back() > 0.0000002)
-			continue;
-
-		if( tri::triangulation::boundary(pX)
-		||	tri::triangulation::boundary(pY) )
-			continue;
-
-		if(pX.x < -tri::RATIO/2.0) continue;
-		if(pX.x > tri::RATIO/2.0) continue;
-		if(pX.y < -1.0/2.0) continue;
-		if(pX.y > 1.0/2.0) continue;
-		if(pY.x < -tri::RATIO/2.0) continue;
-		if(pY.x > tri::RATIO/2.0) continue;
-		if(pY.y < -1.0/2.0) continue;
-		if(pY.y > 1.0/2.0) continue;
-
-		matchX.emplace_back(T*vec3(pX.x, pX.y, 1));
-		matchY.emplace_back(T*vec3(pY.x, pY.y, 1));
-		weights.emplace_back(1.0f/length(trWA.originpoints[i] - trA.points[i]));
-
+		vec2 pX = trA.points[i];
+		vec2 pY = trWA.points[i];
+		tempX.emplace_back(T*vec3(pX.x, pX.y, 1));
+		tempY.emplace_back(T*vec3(pY.x, pY.y, 1));
 	}
 
 	for(size_t i = 0; i < trB.NP; i++){
-
-		dist2DB.push_back(length(trWB.originpoints[i] - trB.points[i]));
-
 		vec2 pX = trB.points[i];
-		vec2 pY = trB.originpoints[i];
-
-		tempX.emplace_back(T*vec3(pX.x, pX.y, 1));
-		tempY.emplace_back(T*vec3(pY.x, pY.y, 1));
-
-		if(dist2DB.back() > 0.0000002)
-			continue;
-
-		if( tri::triangulation::boundary(pX)
-		|| 	tri::triangulation::boundary(pY) )
-			continue;
-
-		if(pX.x < -tri::RATIO/2.0) continue;
-		if(pX.x > tri::RATIO/2.0) continue;
-		if(pX.y < -1.0/2.0) continue;
-		if(pX.y > 1.0/2.0) continue;
-		if(pY.x < -tri::RATIO/2.0) continue;
-		if(pY.x > tri::RATIO/2.0) continue;
-		if(pY.y < -1.0/2.0) continue;
-		if(pY.y > 1.0/2.0) continue;
-
-		matchX.emplace_back(T*vec3(pX.x, pX.y, 1));
-		matchY.emplace_back(T*vec3(pY.x, pY.y, 1));
-		weights.emplace_back(1.0f/length(trWB.originpoints[i] - trB.points[i]));
-
-	//	cout<<"W"<<weights.back()<<endl;
-
+		vec2 pY = trWB.points[i];
 	}
 
 	Matrix3f K = unp::Camera();
@@ -217,20 +165,70 @@ int main( int argc, char* args[] ) {
 //	Matrix3f F = unp::F_LMEDS(matchX, matchY);
 //	Matrix3f F = unp::F_RANSAC(matchX, matchY);
 
+
 	Matrix3f F;
-	F << -0.936791,      2.24,  -26.1548,
-  1.03284,   1.77101,  -13.5179,
-  26.3407,   10.5485,         1;
+
+	F << 16.7481,  270.679, -85.0148,
+	-270.653,  4.93792,  116.036,
+	 77.8862, -121.158,        1;
+
+//	F << 13.6837,  227.306, -7.45223,
+//	-234.242,  4.05449,  61.3264,
+//	0.158841,  -61.249,        1;
+
+//	F << 10.686, -274.081,  599.567,
+//	345.76, -62.5221, -366.004,
+//-601.736,  392.134,        1;
+
+	/*
+	F_Sampson:
+	F_LMEDS:
+	F_RANSACL
+	 */
+
+
+ JacobiSVD<Matrix3f> FS(F, ComputeFullU | ComputeFullV);
+ Vector3f S = FS.singularValues();
+ S(2) = 0;
+ F = FS.matrixU() * S.asDiagonal() * FS.matrixV().transpose();
+ cout<<"WHAT THE HELL"<<endl;
+ cout<<F<<endl;
+ FS.compute(F, ComputeFullU | ComputeFullV);
+ cout<<FS.singularValues()<<endl;
 
 
 	cout<<"Fundamental Matrix: "<<F<<endl;
 
 	point3D = unp::triangulate(F, K, tempX, tempY);
-
 	point3Dbuf.fill(point3D);
-	tri::upload(&trB);
+
+	tri::upload(&trA);
 
 	int NT;
+
+
+	Tiny::view.interface = [&](){
+
+		ImGui::SetNextWindowSize(ImVec2(480, 260), ImGuiCond_Once);
+//		ImGui::SetNextWindowPos(ImVec2(50, 470), ImGuiCond_Once);
+
+		ImGui::Begin("F Computer Controller", NULL, 0);
+
+		ImGui::DragFloat("px", &unp::px, 0.01f, -5.0f, 5.0f);
+		ImGui::DragFloat("py", &unp::py, 0.01f, -5.0f, 5.0f);
+		ImGui::DragFloat("fx", &unp::fx, 0.01f, -5.0f, 5.0f);
+		ImGui::DragInt("check", &unp::check, 1, 0, 3);
+
+		if(ImGui::Button("Reproject")){
+			K = unp::Camera();
+			point3D = unp::triangulate(F, K, tempX, tempY);
+			point3Dbuf.fill(point3D);
+		}
+
+		ImGui::End();
+
+	};
+
 
 	Tiny::view.pipeline = [&](){
 

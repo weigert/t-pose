@@ -43,6 +43,26 @@ bool intriangle( glm::vec2 p, glm::ivec4 t, std::vector<glm::vec2>& v){
 
 }
 
+bool intriangle( glm::vec2 p, glm::ivec4 t, std::vector<glm::vec2>& vA, std::vector<glm::vec2>& vB, float warp ){
+
+	if(length(mix(vA[t.x], vB[t.x], warp) - mix(vA[t.y], vB[t.y], warp)) == 0) return false;
+	if(length(mix(vA[t.y], vB[t.y], warp) - mix(vA[t.z], vB[t.z], warp)) == 0) return false;
+	if(length(mix(vA[t.z], vB[t.z], warp) - mix(vA[t.x], vB[t.x], warp)) == 0) return false;
+
+	glm::mat3 R(
+		1, mix(vA[t.x], vB[t.x], warp).x, mix(vA[t.x], vB[t.x], warp).y,
+		1, mix(vA[t.y], vB[t.y], warp).x, mix(vA[t.y], vB[t.y], warp).y,
+		1, mix(vA[t.z], vB[t.z], warp).x, mix(vA[t.z], vB[t.z], warp).y
+	);
+
+	glm::vec3 s = inverse(R)*glm::vec3(1, p.x, p.y);
+	if(s.x <= 0 || s.x >= 1) return false;
+	if(s.y <= 0 || s.y >= 1) return false;
+	if(s.z <= 0 || s.z >= 1) return false;
+	return true;
+
+}
+
 // Map Point in Triangle
 
 glm::vec2 cartesian(glm::vec3 s, glm::ivec4 t, std::vector<glm::vec2>& v){

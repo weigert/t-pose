@@ -24,26 +24,25 @@ using namespace Eigen;
 ================================================================================
 */
 
+int check = 3;
+float px = 488.421 / 960.0f;
+float py = 268.8 / 960.0f;
+float fx = 673.101 / 960.0f;
+float fy = 673.328 / 960.0f;
+
+// 488.421 268.8 673.101 673.328 0.142736 -0.466688 -0.000759649 0.000336397 0.420803
+
+
 Matrix3f Camera(){
 
-  float Fx = 4.2;       //Focal Length [mm]
-  float Px = 0.0014;    //Size of Pixel [mm]
-  float Pn = 4032;      //Number of Pixels (Width)
-
-  float fx = Fx / Px / Pn; //Dimensionless Focal Length
-
-  cout<<"FOCAL LENGTH: "<<fx<<endl;
-
-  // Note: Dimensionless means points are centered on image origin,
-  // and the width of the image is normalized to equal 1
-
   MatrixXf K = MatrixXf(3, 3);
-  K <<  1.0/fx, 0.0, 0.5,
-        0, 1.0/fx, 0.28125,
+  K <<  1.0f/fx, 0, px,
+        0, 1.0f/fy, py,
         0, 0, 1;
   return K;
 
 }
+
 /*
 ================================================================================
                       Data Normalization and Epipoles
@@ -533,6 +532,15 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
 
   Matrix3f E = K.transpose()*F*K;
 
+  // Output E
+
+  JacobiSVD<Matrix3f> FS(F);
+  cout<<"F Singular Values: "<<FS.singularValues()<<endl;
+
+
+  JacobiSVD<Matrix3f> ES(E);
+  cout<<"E Singular Values: "<<ES.singularValues()<<endl;
+
   // Compute Pose
 
   MatrixXf PA = MatrixXf::Zero(3, 4);
@@ -548,7 +556,7 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
   cout<<P.R2<<endl;
   cout<<P.t<<endl;
 
-  function<bool(int)> check = [&](int k){
+  function<bool(int)> docheck = [&](int k){
 
     if(k == 0){
       PB << P.R1(0,0),  P.R1(0,1),  P.R1(0,2), P.t(0),
@@ -575,7 +583,7 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
     XA << A[0].x, A[0].y, 1;
     XB << B[0].x, B[0].y, 1;
 
-    Vector4f X = HDLT(K*PA, K*PB, XA, XB);
+    Vector4f X = HDLT(PA, PB, XA, XB);
     X /= X(3);
 
     cout<<k<<" "<<K*PA*X<<endl;
@@ -590,7 +598,7 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
 
 //  for(int b = 0; b < 4; b++){
 
-  check(1);
+  docheck(check);
   for(size_t n = 0; n < N; n++){
 
     Vector3f XA, XB;

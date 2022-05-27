@@ -730,12 +730,12 @@ int maxerrid( tri::triangulation* tr ){
 	int tta = -1;
 	for(size_t i = 0; i < tr->NT; i++){
 		if(cn[i] <= 0) continue;
-	//	if(cn[i] <= 50) continue;
 		float err = 0.0f;
-		err += terr[i];
-		err += perr[tr->triangles[i].x];
-		err += perr[tr->triangles[i].y];
-		err += perr[tr->triangles[i].z];
+		err += abs(terr[i]);
+//		err += perr[tr->triangles[i].x];
+//		err += perr[tr->triangles[i].y];
+//		err += perr[tr->triangles[i].z];
+//cout<<"ERR "<<err<<endl;
 		if(sqrt(err) > maxerr){
 			maxerr = sqrt(err);
 			tta = i;

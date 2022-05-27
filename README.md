@@ -4,66 +4,59 @@
 
 Two-View Pose Estimation and Direct-Mesh Scene Reconstruction from Image Triangulation
 
-Note: This is a rough proof of concept / prototype and this repo ist still sloppy, being cleaned.
-This currently also does not include a bundle adjustment step. A number of potential improvements are listed below.
+**Disclaimer**: This repository is a proof of concept / prototype for testing purposes. I am publishing it now in case anybody is interested. The methodology is still being improved and the repository is still being cleaned. The state of progress and improvements is explained below.
 
-## Concept
+## Basic Concept
 
-Surfaces of equal material and orientation typically exhibit the same color when projected on images due to lighting. Therefore, triangulations of images are natural choices for representing surface geometry.
+Surfaces of equal material and orientation typically exhibit the same color when projected in images due to lighting. Therefore, triangulations of images are natural choices for representing surface geometry.
 
-Since projections of triangles from 3D into 2D preserve the triangle geometry, an image triangulation can be directly converted to a 3D mesh if the 3D positions of the vertices can be determined. To do this, a standard multiview geometry approach is used, by warping the triangulation from one image onto another.
+Projections of triangles from 3D into 2D preserve straight lines and thus triangle geometry. Thus, an image triangulation can be directly converted to a 3D mesh if the 3D positions of the vertices can be computed.
 
-For a calibrated camera, this allows for direct computation of camera pose and metric vertex positions and mesh.
+To do this, a multi-view geometry approach is applied, where "feature matches" are used to reconstruct the 3D positions. To generate these features, 2D image triangulations are warped between two images of two different views of the same object.
 
-In a manner of speaking, this uses the energy minimization over triangular surfaces of uniform orientation to extract triangulation vertices as features.
+For calibrated cameras, this allows for direct computation of camera pose, metric vertex positions and thus an object mesh.
 
-![two warped triangulations](https://github.com/weigert/t-pose/blob/main/screenshots/warp.png)
+### Details
 
-Both of the triangulations above are **warped** triangulations, which can be used to approximate a mesh directly.
+The main algorithm consists of the following steps:
 
-![3D mesh reconstruction](https://github.com/weigert/t-pose/blob/main/screenshots/3D.gif)
+1. Triangulate Images
+2. Warp Triangulations
+3. Reconstruct Mesh
 
-This is the (very noisy) mesh reconstruction directly from the triangulation. I am working on ways to make it less noisy and remove boundary artifacts. This mostly relates to topology optimization during warping (see below).
+#### Triangulation
 
-## Implementation
+Given two images, we compute a triangulation for each using a minimum energy based approach. Each triangle computes the average color of the image underneath and a cost function can be computed by the distance of the average to the true value. Vertex positions are shifted along the gradient of this cost function. This is implemented using shaders on the GPU (no geometry shaders).
 
-1. Generate triangulation  for image A, optimizing a cost function and triangulation topology
-2. Warp triangulation onto image B, also by optimizing a cost function (preserving topology)
-3. Compute fundamental matrix, unproject points, visualize mesh
+The topology of the triangulation is optimized using a topological optimization strategy, by flipping edges, splitting triangles at their centroid, collapsing short edges and pruning flattened triangles on the domain boundary.
 
-Alternatively, you can generate triangulations for image A and B and use a two-way consistent warping (with barycentrics) to improve the warping quality and make it converge more consistently.
+The topological minimum energy approach leads to good approximations of the base image at various levels of detail, defining a triangulation hierarchy for which the approximation becomes increasingly detailed as the number of triangles increases.
 
-![triangulation](https://github.com/weigert/t-pose/blob/main/screenshots/triangulate.gif)
+The triangulations that this system finds from zero-assumptions are very good and give clean boundaries, such that the vertices are well fit to image features.
 
-![warping](https://github.com/weigert/t-pose/blob/main/screenshots/warp.gif)
+#### Warping
 
-![warping with mesh shown](https://github.com/weigert/t-pose/blob/main/screenshots/warp2.gif)
+The coarse-to-fine triangulations can be used to warp one image onto the other with better convergence. Barycentric coordinates on triangles in 3D are also preserved under projective transformations, which allows for a simple hierarchical warping algorithm.
 
-![interpolate](https://github.com/weigert/t-pose/blob/main/screenshots/view.gif)
+Starting from the most coarse triangulation `T0(A)` for image `A`, we can warp it into image `B` by minimizing the cost function (i.e. moving vertices along gradient) without altering the topology of `T0(A)`. This gives us vertex positions for all triangles before and after warping (`V0` -> `V0'`). For the next triangulation `T1(A)`, we can compute the barycentric coordiantes of the vertices `V1` in terms of the triangles of `T0(A)` and vertices `V0`, and recover their "warped" cartesian coordiantes from the vertices `V0'`. This acts as the next-best-guess initial condition for warping `V1` -> `V1'`, consistent with the previous warping step. This process is repeated for increasingly fine triangulations.
 
-(thanks to my roommate aaron for t-posing lol)
+Finally, this method can be made two-way consistent for two images `A` and `B`.
 
-Some boundary artifacts can be seen in the warped image.
+Any vertex warped by `TN(A)` -> `TN(A)'` should be warped identically by `TN(B)'` -> `TN(B)`. This is enforced by making the initial condition of a warping not the forward warping of the previous more coarse step, but the reverse warping of the previous more coarse step of the other image's triangulation.
 
-Optionally, if the fundamental matrix is known (e.g. by other feature matching techniques), then the warping can utilize the epipolar geometry to warp more optimally and the mesh comes out better.
+This leads to incredibly clean warpings which accurately predict the positions of key-points as triangulation vertices.
 
-The triangulation can be accelerated by using a good initial guess, e.g. delaunay triangulating interest points. This is not necessary, the triangulations that the system finds without any assumptions are very good.
+#### Mesh Reconstruction
 
-Below are some ideas I have for improving each step of the pipeline, which should each improve the reconstruction quality.
+This is the aspect with which I am currently having the most difficulties. Given two views, the scene is strictly only reconstructable up to a projective ambiguity without supplying additional scene or camera information.
 
-### More Details
+A fundamental matrix can be computed, but the accuracy is still difficult to determine at the moment and without explicitly resolving the projective ambiguity it is difficult to gauge and debug.
 
-The triangulation is computed by minimizing the energy as the difference between the triangle's average color and the color sampled at the texture. The gradient descent works (without geometry shaders) by approximating the gradient by generating shifted triangles and rasterizing in the fragment shader.
-
-The topological optimization occurs by taking the most "expensive" triangles and splitting them at their centroid. Triangles with short edges have their shortest edge collapsed, and a delaunay-flip happens when required by measuring angles.
-
-The triangulations are successive and increasing in detail. This gives us a triangulation hierarchy, which is used for warping.
-
-We warp the triangulation from coarse to fine by minimizing the cost without toplogical optimization (for now, see todo). The warping from the previous level of detail is then used to transform the initial coordinates using barycentrics so that fine triangulation warping is achieved ("hierarchical warping").
-
-Finally, using the warped positions of vertices a fundamental matrix is estimated for direct mesh reconstruction. This is currently the step which works the least well, and will be investigated more in the future.
+Nonetheless, an implementation that should give a 3D reconstruction is provided but I am not currently satisfied with it and it still requires tuning, particularly in recognizing erronious warpings and the management of occlusion.
 
 ## Usage
+
+Note that this repository is still a mess and I haven't yet decided on a data io structure for working with data sets.
 
 Written in C++.
 
@@ -80,27 +73,30 @@ Requires:
 `/output/`: Data output storage folder
 `/source/`: Main header files
 
+## Future Work and Improvements
+
+### Top-Level
+
+The estimation of the fundamental matrix needs to be automated by detecting relevant and non-relevant triangles. I predict that this will primarily be related to the gradients of the cost function.
+
+If the fundamental matrix is known, the warping can exploit the epipolar geometry to warp more optimally. This was implemented in a previous version, but I decided to drop this assumption.
+
+Triangulations can be accelerated using a good initial guess, e.g. by delaunay triangulating interest points. This is not necessary, the triangulations that the system finds without any assumptions are very good.
+
+There are still some issues with oscillation of the optimizer which I would like to fix. Sometimes the optimization gets trapped due to the gradient approximation.
+
+A linear gradient cost function can be used to improve the goodness of fit and lower the triangulation energy more, but the constant color fitting is currently still sufficiently good. This could help triangle fitting / feature detection in sparse areas.
+
+Performance improvements might be achievable by using texture mipmapping so that the coarseness of the image scales with the coarseness of the triangulation.
+
+Finally, the main potential for this method comes from topological alterations during the warping step. By allowing for the collapsing of edges and creation (or specifically duplication) of vertices / detachment of triangles, this system has the potential to deal with occlusion explicitly and elegantly. This is a difficult subject that warrants some planning though.
+
+### General
+
+- Better Triangulation Storage Format and Data IO
+- Proper Parameter Separation / Loading
+- Cost Function Normalization (very hard because of integer atomics)
+
 ## Credits
 
 Nicholas McDonald, 2022
-
-## To-Do
-
-### Short Term
-
-- Clean IO System / Ratio Setting / Window-Size Setting
-- Normalize the Cost Functions Properly
-    Note: Difficult because of atomic operation limitation
-- Properly Separate out the Parameters (e.g. energy weights)
-- Better Storage Format Handling
-
-### Mid Term
-
-- Fix Flip Oscillation Somehow ( Flip Decay? ). This is the main slowing factor.
-- Implement Linear Gradient Cost Function for improved fitting!
-- Texture Mip-Mapping for Improved Speed and Accuracy
-
-### Long Term
-
-- Topology Optimization / Detachment During Warping
-    To Handle Occlusion!
