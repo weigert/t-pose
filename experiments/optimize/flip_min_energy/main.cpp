@@ -142,7 +142,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.uniform("mode", 2);
 		triangleshader.uniform("KTriangles", tr.NT);
 		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
+		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
 		if(viewlines){
 			linestrip.use();

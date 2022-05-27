@@ -43,17 +43,17 @@ uniform int mode;
 
 void main() {
 
-  const int TDIV = gl_InstanceID/13;
-  const int TMOD = gl_InstanceID%13;
+  const int TDIV = gl_InstanceID/KTriangles;
+  const int TMOD = gl_InstanceID%KTriangles;
   vs_out.index = gl_InstanceID;
 
   int pind;               // Vertex Index
   if (in_Position.x > 0)
-    pind = ind[TDIV].x;
+    pind = ind[TMOD].x;
   if (in_Position.y > 0)
-    pind = ind[TDIV].y;
+    pind = ind[TMOD].y;
   if (in_Position.z > 0)
-    pind = ind[TDIV].z;
+    pind = ind[TMOD].z;
 
   vec2 tpos = p[pind];    // Vertex Image-Space (-RATIO, RATIO) x, (-1, 1) y
   float dp = 0.05f; // Image-Space Pixel Shift
@@ -107,18 +107,18 @@ void main() {
 
   vec2 D = vec2(dp);
 
-       if(TMOD == 1 && in_Position.x > 0)   D *= vec2( 1, 0);
-  else if(TMOD == 2 && in_Position.x > 0)   D *= vec2(-1, 0);
-  else if(TMOD == 3 && in_Position.x > 0)   D *= vec2( 0, 1);
-  else if(TMOD == 4 && in_Position.x > 0)   D *= vec2( 0,-1);
-  else if(TMOD == 5 && in_Position.y > 0)   D *= vec2( 1, 0);
-  else if(TMOD == 6 && in_Position.y > 0)   D *= vec2(-1, 0);
-  else if(TMOD == 7 && in_Position.y > 0)   D *= vec2( 0, 1);
-  else if(TMOD == 8 && in_Position.y > 0)   D *= vec2( 0,-1);
-  else if(TMOD == 9 && in_Position.z > 0)   D *= vec2( 1, 0);
-  else if(TMOD == 10 && in_Position.z > 0)  D *= vec2(-1, 0);
-  else if(TMOD == 11 && in_Position.z > 0)  D *= vec2( 0, 1);
-  else if(TMOD == 12 && in_Position.z > 0)  D *= vec2( 0,-1);
+       if(TDIV == 1 && in_Position.x > 0)   D *= vec2( 1, 0);
+  else if(TDIV == 2 && in_Position.x > 0)   D *= vec2(-1, 0);
+  else if(TDIV == 3 && in_Position.x > 0)   D *= vec2( 0, 1);
+  else if(TDIV == 4 && in_Position.x > 0)   D *= vec2( 0,-1);
+  else if(TDIV == 5 && in_Position.y > 0)   D *= vec2( 1, 0);
+  else if(TDIV == 6 && in_Position.y > 0)   D *= vec2(-1, 0);
+  else if(TDIV == 7 && in_Position.y > 0)   D *= vec2( 0, 1);
+  else if(TDIV == 8 && in_Position.y > 0)   D *= vec2( 0,-1);
+  else if(TDIV == 9 && in_Position.z > 0)   D *= vec2( 1, 0);
+  else if(TDIV == 10 && in_Position.z > 0)  D *= vec2(-1, 0);
+  else if(TDIV == 11 && in_Position.z > 0)  D *= vec2( 0, 1);
+  else if(TDIV == 12 && in_Position.z > 0)  D *= vec2( 0,-1);
   else D *= vec2(0);
 
   tpos += D;
@@ -134,9 +134,9 @@ void main() {
 
   if(mode == 1){
     ten[vs_out.index] = 0;
-    gr[ind[TDIV].x] = ivec2(0);
-    gr[ind[TDIV].y] = ivec2(0);
-    gr[ind[TDIV].z] = ivec2(0);
+    gr[ind[TMOD].x] = ivec2(0);
+    gr[ind[TMOD].y] = ivec2(0);
+    gr[ind[TMOD].z] = ivec2(0);
   }
 
   //Add One-Ring Energy
