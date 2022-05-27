@@ -46,7 +46,7 @@ int main( int argc, char* args[] ) {
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/2, IMG->h/2);
 	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
 	glDisable(GL_CULL_FACE);
@@ -204,6 +204,10 @@ int main( int argc, char* args[] ) {
 	};
 
 	vector<int> exportlist = {
+		3000,
+		2500,
+		2000,
+		1500,
 		1500,
 		1400,
 		1300,
@@ -242,7 +246,7 @@ int main( int argc, char* args[] ) {
 
 		bool updated = false;
 
-		if( tri::geterr(&tr) < 1E-4 ){
+		if( tri::geterr(&tr) < 1E-3 ){
 
 			// Make sure we start exportin'
 

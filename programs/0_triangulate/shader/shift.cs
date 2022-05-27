@@ -42,6 +42,6 @@ void main(){
     tgr.y = 0;
   }
 
-  p[index] -=  0.00005 * tgr / 256 / 256;
+  p[index] -=  0.000025 * tgr / 256 / 256;
 
 }
