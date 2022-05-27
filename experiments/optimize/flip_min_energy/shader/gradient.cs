@@ -24,7 +24,6 @@ void main(){
 
   // Add the Non-Normalized Gradient to the Per-Vertex Gradients
 
-
   atomicAdd(gr[ind[index].x].x, en[ 1*KTriangles + index] - en[ 2*KTriangles + index]);
   atomicAdd(gr[ind[index].x].y, en[ 3*KTriangles + index] - en[ 4*KTriangles + index]);
 
@@ -33,17 +32,5 @@ void main(){
 
   atomicAdd(gr[ind[index].z].x, en[ 9*KTriangles + index] - en[10*KTriangles + index]);
   atomicAdd(gr[ind[index].z].y, en[11*KTriangles + index] - en[12*KTriangles + index]);
-  
-
-  /*
-  atomicAdd(gr[ind[index].x].x, en[ 13*index + 1 ] - en[ 13*index + 2 ]);
-  atomicAdd(gr[ind[index].x].y, en[ 13*index + 3 ] - en[ 13*index + 4 ]);
-
-  atomicAdd(gr[ind[index].y].x, en[ 13*index + 5 ] - en[ 13*index + 6 ]);
-  atomicAdd(gr[ind[index].y].y, en[ 13*index + 7 ] - en[ 13*index + 8 ]);
-
-  atomicAdd(gr[ind[index].z].x, en[ 13*index + 9 ] - en[ 13*index + 10]);
-  atomicAdd(gr[ind[index].z].y, en[ 13*index + 11] - en[ 13*index + 12]);
-  */
 
 }

@@ -89,9 +89,6 @@ int main( int argc, char* args[] ) {
 
 	// Shaders and Buffers
 
-	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
-	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
-
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
 	linestrip.bind<vec2>("points", tri::pointbuf);
 	linestrip.bind<ivec4>("index", tri::trianglebuf);
@@ -106,16 +103,6 @@ int main( int argc, char* args[] ) {
 	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
 	triangleshader.bind<int>("nring", tri::tnringbuf);
 
-	// SSBO Manipulation Compute Shaders (Reset / Average)
-
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "tenergy", "penergy", "gradient", "nring"});
-	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
-	reset.bind<int>("colnum", tri::tcolnumbuf);
-	reset.bind<int>("tenergy", tri::tenergybuf);
-	reset.bind<int>("penergy", tri::penergybuf);
-	reset.bind<ivec2>("gradient", tri::pgradbuf);
-	reset.bind<int>("nring", tri::tnringbuf);
-
 	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "penergy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
 	gradient.bind<int>("tenergy", tri::tenergybuf);
@@ -129,6 +116,7 @@ int main( int argc, char* args[] ) {
 	// Load Triangulations
 
 	vector<int> importlist = {
+		2000,
 		1500,
 		1400,
 		1300,
@@ -177,11 +165,6 @@ int main( int argc, char* args[] ) {
 	// Convenience Lambdas
 
 	auto doreset = [&](){
-
-		reset.use();
-		reset.uniform("NTriangles", 13*tr->NT);
-		reset.uniform("NPoints", tr->NP);
-		reset.dispatch(1 + (13*tr->NT)/1024);
 
 		triangleshader.use();
 		triangleshader.texture("imageA", texA);		//Load Texture
@@ -233,9 +216,11 @@ int main( int argc, char* args[] ) {
 		triangleinstance.render(GL_TRIANGLE_STRIP, tr->NT);
 
 		if(viewlines){
+
 			linestrip.use();
 			linestrip.uniform("RATIO", tri::RATIO);
 			linestripinstance.render(GL_LINE_STRIP, tr->NT);
+
 		}
 
 	};

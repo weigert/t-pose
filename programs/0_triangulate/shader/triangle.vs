@@ -10,6 +10,19 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
+layout (std430, binding = 2) buffer colacc {
+  ivec4 ca[];
+};
+
+layout (std430, binding = 3) buffer colnum {
+  int cn[];
+};
+
+layout (std430, binding = 4) buffer tenergy {
+  int ten[];
+};
+
+
 layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
@@ -46,7 +59,7 @@ void main() {
   vec2 tpos = p[pind];    // Vertex Image-Space (-RATIO, RATIO) x, (-1, 1) y
   float dp = 0.05f; // Image-Space Pixel Shift
 
-  dp /= (1.0f + 9.0f*float(KTriangles)/1000.0f);
+  dp /= (1.0f + 4.0f*float(KTriangles)/1000.0f);
 
   vec2 D = vec2(dp);
 
@@ -69,6 +82,20 @@ void main() {
 
   gl_Position = vec4(tpos, -1, 1.0f);
   vs_out.position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
+
+  // Reset Values
+
+  if(mode == 0){
+    cn[vs_out.index] = 0;
+    ca[vs_out.index] = ivec4(0);
+  }
+
+  if(mode == 1){
+    ten[vs_out.index] = 0;
+    gr[ind[TMOD].x] = ivec2(0);
+    gr[ind[TMOD].y] = ivec2(0);
+    gr[ind[TMOD].z] = ivec2(0);
+  }
 
   //Add One-Ring Energy
 

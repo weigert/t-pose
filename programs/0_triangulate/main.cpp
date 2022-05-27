@@ -46,7 +46,7 @@ int main( int argc, char* args[] ) {
 	Tiny::view.vsync = false;
 	Tiny::view.antialias = 0;
 
-	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/2, IMG->h/2);
+	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", IMG->w/1.5, IMG->h/1.5);
 	tri::RATIO = (float)IMG->w/(float)IMG->h;
 
 	glDisable(GL_CULL_FACE);
@@ -68,10 +68,6 @@ int main( int argc, char* args[] ) {
 	// Image Rendering
 
 	Texture tex(IMG);		//Load Texture with Image
-	Square2D flat;			//Create Primitive Model
-
-	Shader image({"shader/image.vs", "shader/image.fs"}, {"in_Quad", "in_Tex"});
-	Shader point({"shader/point.vs", "shader/point.fs"}, {"in_Position"});
 
 	// Shaders and Buffers
 
@@ -90,16 +86,6 @@ int main( int argc, char* args[] ) {
 	triangleshader.bind<int>("penergy", tri::penergybuf);
 	triangleshader.bind<ivec2>("gradient", tri::pgradbuf);
 	triangleshader.bind<int>("nring", tri::tnringbuf);
-
-	// SSBO Manipulation Compute Shaders (Reset / Average)
-
-	Compute reset({"shader/reset.cs"}, {"colacc", "colnum", "tenergy", "penergy", "gradient", "nring"});
-	reset.bind<ivec4>("colacc", tri::tcolaccbuf);
-	reset.bind<int>("colnum", tri::tcolnumbuf);
-	reset.bind<int>("tenergy", tri::tenergybuf);
-	reset.bind<int>("penergy", tri::penergybuf);
-	reset.bind<ivec2>("gradient", tri::pgradbuf);
-	reset.bind<int>("nring", tri::tnringbuf);
 
 	Compute gradient({"shader/gradient.cs"}, {"index", "tenergy", "gradient"});
 	gradient.bind<ivec4>("index", tri::trianglebuf);
@@ -129,11 +115,6 @@ int main( int argc, char* args[] ) {
 	// Convenience Lambdas
 
 	auto computecolors = [&](){
-
-		reset.use();
-		reset.uniform("NTriangles", 13*tr.NT);
-		reset.uniform("NPoints", tr.NP);
-		reset.dispatch(1 + (13*tr.NT)/1024);
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
@@ -178,14 +159,12 @@ int main( int argc, char* args[] ) {
 		triangleshader.uniform("RATIO", tri::RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP, tr.NT);
 
-	//	point.use();
-	//	point.uniform("RATIO", tri::RATIO);
-	//	pointmesh.render(GL_POINTS, tr.NT);
-
 		if(viewlines){
+
 			linestrip.use();
 			linestrip.uniform("RATIO", tri::RATIO);
 			linestripinstance.render(GL_LINE_STRIP, tr.NT);
+
 		}
 
 	};
@@ -204,8 +183,6 @@ int main( int argc, char* args[] ) {
 	};
 
 	vector<int> exportlist = {
-		3000,
-		2500,
 		2000,
 		1500,
 		1500,
@@ -246,7 +223,7 @@ int main( int argc, char* args[] ) {
 
 		bool updated = false;
 
-		if( tri::geterr(&tr) < 1E-3 ){
+		if( tri::geterr(&tr) < 1E-4 ){
 
 			// Make sure we start exportin'
 

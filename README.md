@@ -64,20 +64,27 @@ Nonetheless, an implementation that should give a 3D reconstruction is provided 
 
 ## Usage
 
-Note that this repository is still a mess and I haven't yet decided on a data io structure for working with data sets.
+Note that this repository is still a mess and I haven't yet decided on a data io structure for working with data sets. This will follow in the future.
+
+Nevertheless, you can build the programs which have inconsistent interfaces.
 
 Written in C++.
 
-Build the programs with `make all`.
+Build each program with `make all`.
 
-Requires:
+Dependencies:
 - [TinyEngine](https://github.com/weigert/TinyEngine)
 - OpenCV (only for two small aspects - I plan on removing this dependency)
+
+Run the programs using `./main`, the programs will let you know what input they want.
+
+Some programs generate output triangulation `.tri` files, which are a storage format for the triangulations (which will be overhauled). These are stored in the root `output` folder, so some programs will ask for a dataset name to write them to (e.g. triangulation program, warping program).
 
 ### Reading
 
 `/experiments/`: Smaller programs for testing aspects of the pipeline
 `/programs/`: Main pipeline for generating scene reconstructions
+`/resource/`: Just some testing data. Not linked to the programs in any way.
 `/output/`: Data output storage folder
 `/source/`: Main header files
 

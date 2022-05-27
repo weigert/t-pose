@@ -729,7 +729,7 @@ int maxerrid( tri::triangulation* tr ){
 	maxerr = 0;
 	int tta = -1;
 	for(size_t i = 0; i < tr->NT; i++){
-		if(cn[i] <= 0) continue;
+	//	if(cn[13*i] <= 0) continue;
 		float err = 0.0f;
 		err += abs(terr[i]);
 //		err += perr[tr->triangles[i].x];

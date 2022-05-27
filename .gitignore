@@ -1,3 +1,4 @@
 *main
 *.tri
 energy*.txt
+./output/*
