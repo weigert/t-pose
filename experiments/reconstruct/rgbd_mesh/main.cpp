@@ -212,7 +212,11 @@ int main( int argc, char* args[] ) {
 	cam::far = 100.0f;                          //Projection Matrix Far-Clip
 	cam::near = 0.1f;
 	cam::moverate = 0.01f;
+	cam::turnrate = 0.15f;
 	cam::init();
+
+
+bool showlines = false;
 
 	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
@@ -222,8 +226,8 @@ int main( int argc, char* args[] ) {
 		//if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
 		//	paused = !paused;
 
-		//if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
-		//	showlines = !showlines;
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
+			showlines = !showlines;
 
 	};
 
@@ -248,13 +252,15 @@ int main( int argc, char* args[] ) {
 	triangleshader.bind<ivec4>("index", tri::trianglebuf);
 
 	Buffer point3Dbuf;
+	Buffer point2Dbuf;
 	Buffer triangle3Dbuf;
 	Buffer col3Dbuf;
 
-	Shader triangle3D({"shader/triangle3D.vs", "shader/triangle3D.fs"}, {"in_Position"}, {"points3D", "otherindex", "othercol"});
+	Shader triangle3D({"shader/triangle3D.vs", "shader/triangle3D.fs"}, {"in_Position"}, {"points3D", "otherindex", "othercol", "points2D"});
 	triangle3D.bind<vec4>("points3D", &point3Dbuf);
 	triangle3D.bind<ivec4>("otherindex", &triangle3Dbuf);
 	triangle3D.bind<vec4>("othercol", &col3Dbuf);
+	triangle3D.bind<vec2>("points2D", &point2Dbuf);
 
 	Shader linestrip({"shader/linestrip.vs", "shader/linestrip.fs"}, {"in_Position"}, {"points", "index"});
 	linestrip.bind<vec2>("points", tri::pointbuf);
@@ -313,6 +319,7 @@ int main( int argc, char* args[] ) {
 
 	vector<ivec4> triangles;
 	vector<vec4> tvertices;
+	vector<vec2> tpoints2D;
 	vector<vec4> tcolors;
 
 	int NP = 0;
@@ -368,6 +375,23 @@ int main( int argc, char* args[] ) {
 		// Perform PCA Fit
 
 		pio::point::pca PCA(point3D, indices, mat4(1.0f));
+
+		/*
+		// Refine the PCA Estimate!
+
+		for(size_t k = 0; k < 5; k++){
+
+			set<size_t> newind;
+			for(auto& i: indices)
+			if(PCA.P(point3D[i]) > 1e-2)
+				newind.insert(i);
+			PCA.compute(point3D, newind, mat4(1.0f));
+
+		}
+		*/
+
+
+
 
 	//	if(PCA.EW(0) > pio::point::PCASAMPLEMINEW0)
 	//		continue;
@@ -435,24 +459,16 @@ int main( int argc, char* args[] ) {
 		vec4 pp1 = unproject(p1);
 		vec4 pp2 = unproject(p2);
 
-		/*
 
-		if(pp0.z < 0)
-			continue;
-		if(pp1.z < 0)
-			continue;
-		if(pp2.z < 0)
-			continue;
 
-		*/
 
-			/*
 
 		// Compute the Average Distance to the plane defined by this guy!
 
 		vec3 nn = normalize(glm::cross(vec3(pp1 - pp0), vec3(pp2 - pp0)));
 		vec3 mean = vec3(pp0 + pp1 + pp2)/3.0f;
 
+		/*
 		float d = 0.0f;
 		for(auto& i: indices)
 			d += abs(dot(vec3(point3D[i]) - mean, nn));
@@ -461,14 +477,24 @@ int main( int argc, char* args[] ) {
 		cout<<d<<endl;
 
 		if(d > 0.05) continue;
-
 		*/
+
+
+		if(dot(nn, normalize(mean)) < 0.1)
+			continue;
+
+		// Check inconsistency?
+
 
 		// Add the Triangle
 
 		tvertices.push_back(pp0);
 		tvertices.push_back(pp1);
 		tvertices.push_back(pp2);
+
+		tpoints2D.push_back(p0);
+		tpoints2D.push_back(p1);
+		tpoints2D.push_back(p2);
 
 		int nt = triangles.size();
 		triangles.emplace_back(3*nt + 0, 3*nt + 1, 3*nt + 2, 0);
@@ -478,11 +504,13 @@ int main( int argc, char* args[] ) {
 	}
 
 	cout<<point3D.size()<<endl;
+	cout<<point2D.size()<<endl;
 	cout<<NP<<endl;
 
 	point3Dbuf.fill(tvertices);
 	triangle3Dbuf.fill(triangles);
 	col3Dbuf.fill(tcolors);
+	point2Dbuf.fill(tpoints2D);
 
 	// Color Accumulation Buffers
 
@@ -492,12 +520,6 @@ int main( int argc, char* args[] ) {
 
 		/*
 
-		triangleshader.use();
-		triangleshader.texture("imageTexture", tex);		//Load Texture
-		triangleshader.uniform("mode", 2);
-		triangleshader.uniform("K", trA.NT);
-		triangleshader.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
 
 	//	point.use();
 	//	point.uniform("RATIO", tri::RATIO);
@@ -506,16 +528,33 @@ int main( int argc, char* args[] ) {
 
 		*/
 
-		triangle3D.use();
-		triangle3D.texture("imageTexture", tex);		//Load Texture
-		triangle3D.uniform("model", glm::mat4(1.0f));
-		triangle3D.uniform("vp", cam::vp);
-		triangle3D.uniform("RATIO", tri::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
 
-	//	linestrip.use();
-	//	linestrip.uniform("RATIO", tri::RATIO);
-	//	linestripinstance.render(GL_LINE_STRIP, trA.NT);
+		if(showlines){
+
+			triangleshader.use();
+			triangleshader.texture("imageTexture", tex);		//Load Texture
+			triangleshader.uniform("mode", 2);
+			triangleshader.uniform("K", trA.NT);
+			triangleshader.uniform("RATIO", tri::RATIO);
+			triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
+
+			linestrip.use();
+			linestrip.uniform("RATIO", tri::RATIO);
+			linestripinstance.render(GL_LINE_STRIP, trA.NT);
+
+		}
+
+		else {
+
+			triangle3D.use();
+			triangle3D.texture("imageTexture", tex);		//Load Texture
+			triangle3D.uniform("model", glm::mat4(1.0f));
+			triangle3D.uniform("vp", cam::vp);
+			triangle3D.uniform("RATIO", tri::RATIO);
+			triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
+
+		}
+
 
 
 	//	particle.use();
