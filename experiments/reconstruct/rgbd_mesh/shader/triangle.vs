@@ -20,12 +20,10 @@ out VS_OUT {
 
 uniform float RATIO;
 uniform int KTriangles;
-uniform float s;
 
 void main() {
 
   vec2 tpos = vec2(0);
-  vec2 opos = vec2(0);
   float dp = 0.01f;
   int TDIV = gl_InstanceID/KTriangles;
   int TMOD = gl_InstanceID%KTriangles;

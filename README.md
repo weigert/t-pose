@@ -66,6 +66,24 @@ A fundamental matrix can be computed, but the accuracy is still difficult to det
 
 Nonetheless, an implementation that should give a 3D reconstruction is provided but I am not currently satisfied with it and it still requires tuning, particularly in recognizing erronious warpings and the management of occlusion.
 
+#### RGB-D Meshing
+
+The 2D triangulation can also be used to generate accurate meshes from RGB-D data. The image is first triangulated, and the depth data is fit to the triangles. The triangulation provides an additional constraint on the vertices of the mesh, requiring that they satisfy all (or a subset) of the plane equations. This can be solved in a least-squares sense.
+
+<img alt="Triangulation computed for a depth-aligned RGB image" src="https://github.com/weigert/t-pose/blob/main/screenshots/rgbd-triangulation.jpg">
+
+The above image is the triangulation of a depth-aligned RGB-D image.
+
+<img alt="Deprojected Pointcloud from RGB-D Dataset, Showing Surface Normals" src="https://github.com/weigert/t-pose/blob/main/screenshots/rgbd-pointcloud.jpg">
+
+A pointcloud can be computed from the depth values (given camera intrinsics). Accurate surface normals improve the reconstruction quality (these were computed using a custom algorithm) The data-set used for this was generated using an Intel Realsense L515 camera.
+
+<img alt="Computed 3D Mesh from RGB-D dataset using planar triangulation" src="https://github.com/weigert/t-pose/blob/main/screenshots/rgbd-mesh.gif">
+
+The resulting mesh fits well to the data, is extremely fast to compute and does not require the computation signed distance functions. Different method are possible for fitting the mesh vertices ideally to the data, and I am currently working on figuring out what works best. Additionally, occlusion needs to be detected by potentially splitting a vertex into two. Currently, I assume full water-tightness.
+
+The triangulation thus provides a convenient structure for directly applying statistical methods to the mesh fitting.
+
 ## Usage
 
 Note that this repository is still a mess and I haven't yet decided on a data io structure for working with data sets. This will follow in the future.

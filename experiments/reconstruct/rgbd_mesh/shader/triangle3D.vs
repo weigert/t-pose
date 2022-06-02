@@ -19,6 +19,7 @@ out VS_OUT {
 
   flat int index;
   vec2 opos;
+  flat vec3 normal;
 
 } vs_out;
 
@@ -39,5 +40,6 @@ void main() {
   gl_Position = vp*model*tpos;
   vs_out.index = gl_InstanceID;
   vs_out.opos = o[tind];
+  vs_out.normal = abs(normalize(cross(vec3(p[ind[gl_InstanceID].y] - p[ind[gl_InstanceID].x]), vec3(p[ind[gl_InstanceID].z] - p[ind[gl_InstanceID].x]))));
 
 }

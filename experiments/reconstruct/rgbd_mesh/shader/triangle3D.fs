@@ -10,6 +10,7 @@ uniform float RATIO;
 in VS_OUT {
   flat int index;
   vec2 opos;
+  flat vec3 normal;
 } vs_out;
 
 out vec4 fragColor;
@@ -28,7 +29,8 @@ void main(){
   // Display
 
   //fragColor = vec4(vec3(ca[vs_out.index].rgb), 1.0);
-    fragColor = texture(imageTexture, p);
+  fragColor = texture(imageTexture, p);
+  //fragColor = vec4(vs_out.normal, 1.0f);
   //fragColor = vec4(1,0,0,0.1);
 
 }
