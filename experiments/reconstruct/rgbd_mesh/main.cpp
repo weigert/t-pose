@@ -211,7 +211,7 @@ int main( int argc, char* args[] ) {
 
 	cam::far = 100.0f;                          //Projection Matrix Far-Clip
 	cam::near = 0.1f;
-	cam::moverate = 0.05f;
+	cam::moverate = 0.01f;
 	cam::init();
 
 	Tiny::view.interface = [](){};
@@ -321,10 +321,6 @@ int main( int argc, char* args[] ) {
 
 		// Add the Triangle
 
-		triangles.emplace_back(3*t + 0, 3*t + 1, 3*t + 2, 0);
-		tcolors.push_back((vec4)tri::col[t]/255.0f);
-		tcolors.back().w = 1.0f;
-
 		// Compute the number of Points inside this Triangle
 
 		// First: Compute Min / Max Coordinates for Iteration
@@ -344,8 +340,8 @@ int main( int argc, char* args[] ) {
 		min.y = (min.y + 1.0f) * 0.5 * sd->h;
 		max.y = (max.y + 1.0f) * 0.5 * sd->h;
 
-		cout<<min.x<<" "<<min.y<<endl;
-		cout<<max.x<<" "<<max.y<<endl;
+	//	cout<<min.x<<" "<<min.y<<endl;
+	//	cout<<max.x<<" "<<max.y<<endl;
 
 		// Extract all Point Indices
 
@@ -364,64 +360,133 @@ int main( int argc, char* args[] ) {
 
 		}
 
+	//	if(indices.size() < pio::point::PCAMINSIZE)
+	//		continue;
+
 		NP += indices.size();
 
 		// Perform PCA Fit
 
 		pio::point::pca PCA(point3D, indices, mat4(1.0f));
 
+	//	if(PCA.EW(0) > pio::point::PCASAMPLEMINEW0)
+	//		continue;
 
 
 		// Unproject the Vertices
 
 		vec3 p = vec3(PCA.mean(0), PCA.mean(1), PCA.mean(2));
 
-		tvertices.emplace_back(p.x, p.y, p.z, 1);
-		tvertices.emplace_back(p.x + 0.1*PCA.EV(0,1), p.y + 0.1*PCA.EV(1,1), p.z + 0.1*PCA.EV(2,1), 1);
-		tvertices.emplace_back(p.x + 0.1*PCA.EV(0,2), p.y + 0.1*PCA.EV(1,2), p.z + 0.1*PCA.EV(2,2), 1);
+		// Basically take the 2D Position, compute a ray somehow, find the intersection with the plane in 3-Space
 
-	//	tvertices.emplace_back(p.x + PCA.EW(0)*PCA.EV(0,0), p.y + PCA.EW(0)*PCA.EV(1,0), p.z + PCA.EW(0)*PCA.EV(2,0), 1);
-	//	tvertices.emplace_back(p.x + PCA.EW(1)*PCA.EV(0,1), p.y + PCA.EW(1)*PCA.EV(1,1), p.z + PCA.EW(1)*PCA.EV(2,1), 1);
+		ivec4 tr = trA.triangles[t];	// This Triangle (Triangulation)
+		vec2 p0 = trA.points[tr[0]];	// Point 0 in 2D
+		vec2 p1 = trA.points[tr[1]];	// Point 1 in 2D
+		vec2 p2 = trA.points[tr[2]];	// Point 2 in 2D
 
-//		tvertices.emplace_back(0,0,0,1);
-	//	tvertices.emplace_back(p.x + 0.1, p.y + 0.0, p.z + 0.0, 1.0);
-	//	tvertices.emplace_back(p.x + 0.0, p.y + 0.1, p.z + 0.0, 1.0);
+		// 1.: Un-Distort point in 2D
+		// 2.: Ray-Cast using Pinhole Camera
+		// 3.: Intersect Plane!
 
+		std::function<vec4(vec2)> unproject = [&](vec2 p){
+
+			vec2 pixel = ( p / vec2( tri::RATIO, 1.0f ) + 1.0f ) * 0.5f * vec2( sd->w, sd->h );
+
+			float x = (pixel[0] - pio::loader::intrColor.ppx) / pio::loader::intrColor.fx;
+			float y = (pixel[1] - pio::loader::intrColor.ppy) / pio::loader::intrColor.fy;
+
+			float xo = x;
+			float yo = y;
+
+			for (int i = 0; i < 10; i++){
+
+					float r2 = x * x + y * y;
+					float icdist = (float)1 / (float)(1 + ((pio::loader::intrColor.coeffs[4] * r2 + pio::loader::intrColor.coeffs[1]) * r2 + pio::loader::intrColor.coeffs[0]) * r2);
+					float xq = x / icdist;
+					float yq = y / icdist;
+					float delta_x = 2 * pio::loader::intrColor.coeffs[2] * xq * yq + pio::loader::intrColor.coeffs[3] * (r2 + 2 * xq * xq);
+					float delta_y = 2 * pio::loader::intrColor.coeffs[3] * xq * yq + pio::loader::intrColor.coeffs[2] * (r2 + 2 * yq * yq);
+					x = (xo - delta_x) * icdist;
+					y = (yo - delta_y) * icdist;
+
+			}
+
+			// Basically, this guy is a ray???
+
+			vec4 point;
+			Eigen::Vector3f P;
+			P << -x, y, 1;
+			float depth = abs( PCA.mean.dot(PCA.normal) / P.dot(PCA.normal) );
+
+
+			//; // this is basically the sliding parameter!
+			//Solve for depth s.t. this point satisfied the plane equation!
+
+			point[0] = -depth * x;
+			point[1] = depth * y;
+			point[2] = depth;
+			point[3] = 1.0f;
+
+			return point;
+
+		};
+
+		vec4 pp0 = unproject(p0);
+		vec4 pp1 = unproject(p1);
+		vec4 pp2 = unproject(p2);
 
 		/*
-		for(size_t i = 0; i < points.size(); i++){
 
-			if(!vertices[i].z) continue;
+		if(pp0.z < 0)
+			continue;
+		if(pp1.z < 0)
+			continue;
+		if(pp2.z < 0)
+			continue;
 
-			glm::vec3 pos = glm::vec3(-vertices[i].x, -vertices[i].y, vertices[i].z);
-
-			point2D.push_back(glm::vec2( i / sd->w, i%sd->w ));
-			point3D.push_back(glm::vec4(pos,1.0f));
-			colorset.push_back(colortex(i));
-
-		}
 		*/
 
+			/*
 
+		// Compute the Average Distance to the plane defined by this guy!
+
+		vec3 nn = normalize(glm::cross(vec3(pp1 - pp0), vec3(pp2 - pp0)));
+		vec3 mean = vec3(pp0 + pp1 + pp2)/3.0f;
+
+		float d = 0.0f;
+		for(auto& i: indices)
+			d += abs(dot(vec3(point3D[i]) - mean, nn));
+		d /= (float)indices.size();
+
+		cout<<d<<endl;
+
+		if(d > 0.05) continue;
+
+		*/
+
+		// Add the Triangle
+
+		tvertices.push_back(pp0);
+		tvertices.push_back(pp1);
+		tvertices.push_back(pp2);
+
+		int nt = triangles.size();
+		triangles.emplace_back(3*nt + 0, 3*nt + 1, 3*nt + 2, 0);
+		tcolors.push_back((vec4)tri::col[t]/255.0f);
+		tcolors.back().w = 1.0f;
 
 	}
 
-
-	cout<<NP<<endl;
 	cout<<point3D.size()<<endl;
-
+	cout<<NP<<endl;
 
 	point3Dbuf.fill(tvertices);
 	triangle3Dbuf.fill(triangles);
 	col3Dbuf.fill(tcolors);
 
-
-
 	// Color Accumulation Buffers
 
 	triangleshader.bind<ivec4>("colacc", tri::tcolaccbuf);
-
-	float s = 0.0f;
 
 	auto draw = [&](){
 
