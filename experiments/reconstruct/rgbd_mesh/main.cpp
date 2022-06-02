@@ -164,6 +164,7 @@ int main( int argc, char* args[] ) {
 	vector<glm::vec4> point3D;
 	vector<glm::vec2> point2D;
 	vector<glm::vec4> colorset;
+	vector<glm::vec4> normalset;
 
 	rs2::frame colorframe = frames.first(RS2_STREAM_COLOR);
 	uint8_t* dat = (uint8_t*)colorframe.get_data();           //Raw Byte Data
@@ -192,12 +193,51 @@ int main( int argc, char* args[] ) {
 		glm::vec3 pos = glm::vec3(-vertices[i].x, -vertices[i].y, vertices[i].z);
 
 		//point2D.push_back(glm::vec2( i % sd->w, sd->h - i / sd->w ));
-		point2D.push_back(glm::vec2( i % sd->w, sd->h - i / sd->w ));
+	//	point2D.push_back(glm::vec2( i % sd->w, sd->h - i / sd->w ));
 		//point2D.push_back(glm::vec2( i / sd->h, i % sd->h ));
 		point3D.push_back(glm::vec4(pos, 1.0f));
 		colorset.push_back(colortex(i));
+		normalset.push_back(vec4(1));
 
 	}
+
+	pio::sample::donormalmean = false;
+
+	pio::point::pcanode* root = pio::sample::pcatree<pio::point::pcaMaxEW>(point3D, colorset, normalset, 1024*8);
+	delete root;
+
+	// Instead of adding the point2D directly, we should project the 3D points to pixel coordinates.
+	// Then we can do a downsampling in 3D.
+
+	function<vec2(vec4)> project = [&](vec4 p){
+
+		float x = -p[0] / p[2], y = p[1] / p[2];
+
+		float r2 = x * x + y * y;
+		float f = 1 + pio::loader::intrColor.coeffs[0] * r2 + pio::loader::intrColor.coeffs[1] * r2 * r2 + pio::loader::intrColor.coeffs[4] * r2 * r2 * r2;
+		x *= f;
+		y *= f;
+		float dx = x + 2 * pio::loader::intrColor.coeffs[2] * x * y + pio::loader::intrColor.coeffs[3] * (r2 + 2 * x * x);
+		float dy = y + 2 * pio::loader::intrColor.coeffs[3] * x * y + pio::loader::intrColor.coeffs[2] * (r2 + 2 * y * y);
+		x = dx;
+		y = dy;
+
+		x = x * pio::loader::intrColor.fx + pio::loader::intrColor.ppx;
+    y = y * pio::loader::intrColor.fy + pio::loader::intrColor.ppy;
+
+		return vec2(x, y);
+
+	};
+
+
+	for(auto& p: point3D){
+		point2D.push_back(project(p));
+	}
+
+//	cout<<point2D[500][0]<<" "<<point2D[500][1]<<endl;
+//	vec2 p2d = project(point3D[500]);
+//	cout<<p2d[0]<<" "<<p2d[1]<<endl;
+
 
 	cout<<"Found Points: "<<point3D.size()<<endl;
 	cout<<"Found Points: "<<point2D.size()<<endl;
@@ -216,7 +256,8 @@ int main( int argc, char* args[] ) {
 	cam::init();
 
 
-bool showlines = false;
+	bool showlines = false;
+	bool showpoints = false;
 
 	Tiny::view.interface = [](){};
 	Tiny::event.handler = [&](){
@@ -228,6 +269,9 @@ bool showlines = false;
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
 			showlines = !showlines;
+
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
+			showpoints = !showpoints;
 
 	};
 
@@ -266,17 +310,19 @@ bool showlines = false;
 	linestrip.bind<vec2>("points", tri::pointbuf);
 	linestrip.bind<ivec4>("index", tri::trianglebuf);
 
-	Shader particle({"shader/particle.vs", "shader/particle.fs"}, {"in_Position", "in_Color"});
+	Shader particle({"shader/particle.vs", "shader/particle.fs"}, {"in_Position", "in_Color", "in_Normal"});
 
-	Buffer positionbuf, colorbuf;
+	Buffer positionbuf, colorbuf, normalbuf;
 
-	Model particles({"in_Position", "in_Color"});
+	Model particles({"in_Position", "in_Color", "in_Normal"});
   particles.bind<glm::vec4>("in_Position", &positionbuf);
-  particles.bind<glm::vec4>("in_Color", &colorbuf);
+	particles.bind<glm::vec4>("in_Color", &colorbuf);
+	particles.bind<glm::vec4>("in_Normal", &normalbuf);
   particles.SIZE = point3D.size();
 
 	positionbuf.fill(point3D);
 	colorbuf.fill(colorset);
+	normalbuf.fill(normalset);
 
 	Model pointmesh({"in_Position"});
 	pointmesh.bind<vec2>("in_Position", tri::pointbuf);
@@ -367,39 +413,31 @@ bool showlines = false;
 
 		}
 
-	//	if(indices.size() < pio::point::PCAMINSIZE)
-	//		continue;
+		if(indices.size() == 0)
+			continue;
+
+		//if(indices.size() < pio::point::PCAMINSIZE)
+		//	continue;
 
 		NP += indices.size();
 
 		// Perform PCA Fit
 
-		pio::point::pca PCA(point3D, indices, mat4(1.0f));
+		vec3 pcamean = vec3(0);
+		vec3 pcanormal = vec3(0);
 
-		/*
-		// Refine the PCA Estimate!
+//		pio::point::pca PCA(point3D, indices, mat4(1.0f));
+//		pcamean = vec3(PCA.mean(0), PCA.mean(1), PCA.mean(2));
+//		pcanormal = vec3(PCA.normal(0), PCA.normal(1), PCA.normal(2));
 
-		for(size_t k = 0; k < 5; k++){
-
-			set<size_t> newind;
-			for(auto& i: indices)
-			if(PCA.P(point3D[i]) > 1e-2)
-				newind.insert(i);
-			PCA.compute(point3D, newind, mat4(1.0f));
-
+		for(auto& i: indices){
+			pcamean += vec3(point3D[i]);
+			pcanormal += vec3(normalset[i]);
 		}
-		*/
-
-
-
-
-	//	if(PCA.EW(0) > pio::point::PCASAMPLEMINEW0)
-	//		continue;
-
+		pcamean /= (float)indices.size();
+		pcanormal /= (float)indices.size();
 
 		// Unproject the Vertices
-
-		vec3 p = vec3(PCA.mean(0), PCA.mean(1), PCA.mean(2));
 
 		// Basically take the 2D Position, compute a ray somehow, find the intersection with the plane in 3-Space
 
@@ -435,17 +473,13 @@ bool showlines = false;
 
 			}
 
-			// Basically, this guy is a ray???
-
-			vec4 point;
-			Eigen::Vector3f P;
-			P << -x, y, 1;
-			float depth = abs( PCA.mean.dot(PCA.normal) / P.dot(PCA.normal) );
-
-
-			//; // this is basically the sliding parameter!
 			//Solve for depth s.t. this point satisfied the plane equation!
 
+						//; // this is basically the sliding parameter!
+
+			float depth = abs( dot( pcamean, pcanormal ) / dot( vec3(-x, y, 1), pcanormal ) );
+
+			vec4 point;
 			point[0] = -depth * x;
 			point[1] = depth * y;
 			point[2] = depth;
@@ -480,8 +514,8 @@ bool showlines = false;
 		*/
 
 
-		if(dot(nn, normalize(mean)) < 0.1)
-			continue;
+	//	if(dot(nn, normalize(mean)) < 0.1)
+	//		continue;
 
 		// Check inconsistency?
 
@@ -546,20 +580,26 @@ bool showlines = false;
 
 		else {
 
-			triangle3D.use();
-			triangle3D.texture("imageTexture", tex);		//Load Texture
-			triangle3D.uniform("model", glm::mat4(1.0f));
-			triangle3D.uniform("vp", cam::vp);
-			triangle3D.uniform("RATIO", tri::RATIO);
-			triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
+			if(showpoints){
+
+				particle.use();
+				particle.uniform("vp", cam::vp);
+				particles.render(GL_POINTS);
+
+			}
+
+			else {
+
+				triangle3D.use();
+				triangle3D.texture("imageTexture", tex);		//Load Texture
+				triangle3D.uniform("model", glm::mat4(1.0f));
+				triangle3D.uniform("vp", cam::vp);
+				triangle3D.uniform("RATIO", tri::RATIO);
+				triangleinstance.render(GL_TRIANGLE_STRIP, trA.NT);
+
+			}
 
 		}
-
-
-
-	//	particle.use();
-	//	particle.uniform("vp", cam::vp);
-	//	particles.render(GL_POINTS);
 
 	};
 
