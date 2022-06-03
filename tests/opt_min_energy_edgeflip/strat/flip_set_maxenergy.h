@@ -31,7 +31,7 @@
 
 // Take the triangles and sort them by their energy??
 
-if( tri::geterr(&tr) < 1E-4 ){
+if( tpose::geterr(&tr) < 1E-4 ){
 
   struct setsort {
     bool operator () (const std::pair<int, float>& lhs, const std::pair<int, float>& rhs) const {
@@ -45,11 +45,11 @@ if( tri::geterr(&tr) < 1E-4 ){
   for(int t = 0; t < tr.triangles.size(); t++){
 
     if( tr.halfedges[ 3*t + 0 ] >= 0 )
-      hset.emplace( 3*t + 0, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 0 ]/3] );
+      hset.emplace( 3*t + 0, tpose::terr[t] + tpose::terr[tr.halfedges[ 3*t + 0 ]/3] );
     if( tr.halfedges[ 3*t + 1 ] >= 0 )
-      hset.emplace( 3*t + 1, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 1 ]/3] );
+      hset.emplace( 3*t + 1, tpose::terr[t] + tpose::terr[tr.halfedges[ 3*t + 1 ]/3] );
     if( tr.halfedges[ 3*t + 2 ] >= 0 )
-      hset.emplace( 3*t + 2, tri::terr[t] + tri::terr[tr.halfedges[ 3*t + 2 ]/3] );
+      hset.emplace( 3*t + 2, tpose::terr[t] + tpose::terr[tr.halfedges[ 3*t + 2 ]/3] );
 
   }
 
@@ -92,25 +92,25 @@ if( tri::geterr(&tr) < 1E-4 ){
   for(auto& h: hflipset)
     tr.flip( h.first, 0.0f );
 
-  tri::upload(&tr, false);
+  tpose::upload(&tr, false);
   computecolors();
   doenergy();
 
-  tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+  tpose::tenergybuf->retrieve((13*tr.NT), tpose::terr);
 
   for(auto& h: hflipset){
 
-    if( tri::terr[ h.first/3 ] + tri::terr[ (tr.halfedges[ h.first ])/3 ] > h.second )
+    if( tpose::terr[ h.first/3 ] + tpose::terr[ (tr.halfedges[ h.first ])/3 ] > h.second )
       tr.flip( h.first, 0.0f ); 	//Flip it Back, Split
 
   }
 
-  tri::upload(&tr, false);
+  tpose::upload(&tr, false);
   computecolors();
   doenergy();
-  tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+  tpose::tenergybuf->retrieve((13*tr.NT), tpose::terr);
 
-  int tta = tri::maxerrid(&tr);
+  int tta = tpose::maxerrid(&tr);
   if(tta >= 0 && tr.split(tta))
     updated = true;
 
@@ -126,11 +126,11 @@ if(tr.boundary(ta) == 3)
 
 for(size_t ta = 0; ta < tr.NT; ta++){
 
-  if(tr.angle( 3*ta + 0 ) > 0.8*tri::PI)
+  if(tr.angle( 3*ta + 0 ) > 0.8*tpose::PI)
     tr.flip( 3*ta + 0, 0.0 );
-  if(tr.angle( 3*ta + 1 ) > 0.8*tri::PI)
+  if(tr.angle( 3*ta + 1 ) > 0.8*tpose::PI)
     tr.flip( 3*ta + 1, 0.0 );
-  if(tr.angle( 3*ta + 2 ) > 0.8*tri::PI)
+  if(tr.angle( 3*ta + 2 ) > 0.8*tpose::PI)
     tr.flip( 3*ta + 2, 0.0 );
 
 }

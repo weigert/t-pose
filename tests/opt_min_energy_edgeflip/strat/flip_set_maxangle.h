@@ -31,7 +31,7 @@
 
 // Take the triangles and sort them by their energy??
 
-if( tri::geterr(&tr) < 1E-3 ){
+if( tpose::geterr(&tr) < 1E-3 ){
 
   struct setsort {
     bool operator () (const std::pair<int, float>& lhs, const std::pair<int, float>& rhs) const {
@@ -51,7 +51,7 @@ if( tri::geterr(&tr) < 1E-3 ){
     if(tr.angle( ha + 1 ) > maxangle)
       maxangle = tr.angle( ++ha );
 
-    hset.emplace(ha, tri::terr[t]);
+    hset.emplace(ha, tpose::terr[t]);
 
   }
 
@@ -73,7 +73,7 @@ if( tri::geterr(&tr) < 1E-3 ){
 
     // Compute Energy for this Half-Edge Pair
 
-    hflipset[ h.first ] = tri::terr[ h.first/3 ] + tri::terr[ (tr.halfedges[ h.first ])/3 ];
+    hflipset[ h.first ] = tpose::terr[ h.first/3 ] + tpose::terr[ (tr.halfedges[ h.first ])/3 ];
 
     // Add all Half-Edges of Both Triangles to the Non-Flip Set
 
@@ -94,25 +94,25 @@ if( tri::geterr(&tr) < 1E-3 ){
   for(auto& h: hflipset)
     tr.flip( h.first, 0.0f );
 
-  tri::upload(&tr, false);
+  tpose::upload(&tr, false);
   computecolors();
   doenergy();
 
-  tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+  tpose::tenergybuf->retrieve((13*tr.NT), tpose::terr);
 
   for(auto& h: hflipset){
 
-    if( tri::terr[ h.first/3 ] + tri::terr[ (tr.halfedges[ h.first ])/3 ] > h.second )
+    if( tpose::terr[ h.first/3 ] + tpose::terr[ (tr.halfedges[ h.first ])/3 ] > h.second )
       tr.flip( h.first, 0.0f ); 	//Flip it Back, Split
 
   }
 
-  tri::upload(&tr, false);
+  tpose::upload(&tr, false);
   computecolors();
   doenergy();
-  tri::tenergybuf->retrieve((13*tr.NT), tri::terr);
+  tpose::tenergybuf->retrieve((13*tr.NT), tpose::terr);
 
-  int tta = tri::maxerrid(&tr);
+  int tta = tpose::maxerrid(&tr);
   if(tta >= 0 && tr.split(tta))
     updated = true;
 
@@ -135,7 +135,7 @@ for(size_t ta = 0; ta < tr.NT; ta++){
   if(tr.angle( ha + 1 ) > maxangle)
     maxangle = tr.angle( ++ha );
 
-  if(maxangle >= 0.9*tri::PI)
+  if(maxangle >= 0.9*tpose::PI)
     tr.flip(ha, 0.0);
 
 }
