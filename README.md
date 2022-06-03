@@ -68,6 +68,8 @@ Nonetheless, an implementation that should give a 3D reconstruction is provided 
 
 #### RGB-D Meshing
 
+*Note: This part of the repo is merely a proof of concept and depends on a library which I have not yet released.*
+
 The 2D triangulation can also be used to generate accurate meshes from RGB-D data. The image is first triangulated, and the depth data is fit to the triangles. The triangulation provides an additional constraint on the vertices of the mesh, requiring that they satisfy all (or a subset) of the plane equations. This can be solved in a least-squares sense.
 
 <img alt="Triangulation computed for a depth-aligned RGB image" src="https://github.com/weigert/t-pose/blob/main/screenshots/rgbd-triangulation.jpg">
