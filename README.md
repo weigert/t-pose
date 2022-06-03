@@ -104,10 +104,9 @@ Some programs generate output triangulation `.tri` files, which are a storage fo
 
 ### Reading
 
-`/experiments/`: Smaller programs for testing aspects of the pipeline
-`/programs/`: Main pipeline for generating scene reconstructions
+`/tests/`: Smaller programs for testing aspects of the pipeline
+`/software/`: Main pipeline for generating scene reconstructions
 `/resource/`: Just some testing data. Not linked to the programs in any way.
-`/output/`: Data output storage folder
 `/source/`: Main header files
 
 ## Future Work and Improvements
