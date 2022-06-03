@@ -1,4 +1,5 @@
 *main
 *.tri
+*.tri.warp
 energy*.txt
 ./output/*
