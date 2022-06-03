@@ -1,10 +1,21 @@
+/*
+================================================================================
+														t-pose: utility.h
+================================================================================
+
+This header defines a number of helper functions, particularly for computing
+roots of polynomials using companion matrices and barycentric coordinate transforms
+and associated queries.
+
+*/
+
 #ifndef TPOSE_UTILITY
 #define TPOSE_UTILITY
 
-// utility.h
-
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+
+namespace tpose {
 
 /*
 ================================================================================
@@ -168,6 +179,8 @@ Eigen::Matrix4f toEigen(glm::mat4 M){
         M[3][0], M[3][1], M[3][2], M[3][3];
   //Tranpose because of Row Major Ordering
   return T.transpose();
+}
+
 }
 
 #endif

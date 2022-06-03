@@ -1,5 +1,15 @@
-#ifndef TPOSE_UNPROJECT
-#define TPOSE_UNPROJECT
+/*
+================================================================================
+													t-pose: multiview.hpp
+================================================================================
+
+This header defines a number of functions to help in computing fundamental matrices,
+epipolar geometries and perform point triangulation for multiview geometry.
+
+*/
+
+#ifndef TPOSE_MULTIVIEW
+#define TPOSE_MULTIVIEW
 
 // unproject.h
 
@@ -12,7 +22,8 @@
 #include "math.h"
 #include "utility.h"
 
-namespace unp {
+namespace tpose{
+namespace mview {
 
 using namespace std;
 using namespace glm;
@@ -618,6 +629,7 @@ vector<vec4> triangulate(MatrixXf F, MatrixXf K, vector<vec2> A, vector<vec2> B)
 
 }
 
-};
+};  // End of Namespace mview
+};  // End of Namespace tpose
 
 #endif

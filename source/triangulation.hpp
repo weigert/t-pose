@@ -1,14 +1,19 @@
-#ifndef TPOSE_TRIANGULATE
-#define TPOSE_TRIANGULATE
+/*
+================================================================================
+													t-pose: triangulation.h
+================================================================================
 
-// triangulate.h
+This header defines a half-edge based triangulation struct, which includes
+operations for altering its topology and executing queries about its structure.
 
-#include <fstream>
-#include "include/delaunator-cpp/delaunator-header-only.hpp"
-#include "include/poisson.h"
-#include "utility.h"
+*/
 
-namespace tri {
+#ifndef TPOSE_TRIANGULATION
+#define TPOSE_TRIANGULATION
+
+#include <tpose/utility>
+
+namespace tpose {
 
 using namespace glm;
 using namespace std;
@@ -16,165 +21,70 @@ using namespace std;
 float RATIO = 12.0f/8.0f;
 const float PI = 3.14159265f;
 
-/*
-================================================================================
-														Triangulation Struct
-================================================================================
-*/
+// Main Triangulation Struct
 
 struct triangulation {
 
-	// Main Members
+	static size_t MAXT;					// Maximum Number of Triangles
 
-	vector<vec2> points;
-	vector<vec2> originpoints;
-	vector<ivec4> colors;
-	vector<ivec4> triangles;
-	vector<int> halfedges;
-	vector<int> sizes;
+	int NT;											// Number of Triangles
+	vector<ivec4> triangles;		// Triangles
+	vector<int> halfedges;			// Halfedges
+	vector<ivec4> colors;				// Colors per Triangle
 
-	int NP;								// Number of Points
-	int NT;								// Number of Triangles
-	static size_t MAXT;		// Maximum Number of Triangles
+	int NP;											// Number of Points
+	vector<vec2> points;				// Set of Points
+	vector<vec2> originpoints;	// Original Point Position
 
-	// Initial Conditions
-
-	triangulation( string filename ){
-
-		read(filename, false);
-
-	}
-
-	triangulation( size_t K = 0 ){
+	triangulation(){						// Simple 2-Triangle Constructor
 
 		points.emplace_back(-RATIO,-1);
 		points.emplace_back(-RATIO, 1);
 		points.emplace_back( RATIO,-1);
 		points.emplace_back( RATIO, 1);
 
-		while(points.size() < K/2)
-			sample::disc(points, K, vec2(-RATIO, -1.0f), vec2(RATIO, 1.0f));
+		triangles.emplace_back(0, 1, 2, 0);
+		triangles.emplace_back(2, 1, 3, 0);
 
-		vector<double> coords;					//Coordinates for Delaunation
-	  for(size_t i = 0; i < points.size(); i++){
-	    coords.push_back(points[i].x);
-	    coords.push_back(points[i].y);
-	  }
+		colors.emplace_back(0,0,0,1);
+		colors.emplace_back(0,0,0,1);
 
-		delaunator::Delaunator d(coords);			//Compute Delaunay Triangulation
+		halfedges.push_back(-1);
+		halfedges.push_back( 3);
+		halfedges.push_back(-1);
 
-	  for(size_t i = 0; i < d.triangles.size()/3; i++){
-			triangles.emplace_back(d.triangles[3*i+0], d.triangles[3*i+1], d.triangles[3*i+2], 0);
-			halfedges.push_back(d.halfedges[3*i+0]);
-			halfedges.push_back(d.halfedges[3*i+1]);
-			halfedges.push_back(d.halfedges[3*i+2]);
-			colors.emplace_back(0,0,0,1);
-			sizes.push_back(0);
-		}
+		halfedges.push_back( 1);
+		halfedges.push_back(-1);
+		halfedges.push_back(-1);
 
 		NP = points.size();
 		NT = triangles.size();
 		colors.resize(MAXT);
 
+		originpoints = points;
+
 	}
 
-	// Helper Functions
+	float angle( int ha );											// Compute the Angle Opposite of Halfedge
+	float hlength( int ha );										// Length of Edge / Halfedge
+	static bool boundary( vec2 p );							// Check whether Point is on domain Boundary
+	int boundary( int t );											// Count Number of Points on Boundary for Triangle
 
-	float angle( int ha );
-	float hlength( int ha );
-	static bool boundary( vec2 p );
-	int boundary( int t );
+	bool eraset( int t, bool );									// Erase Triangle (with Boundary Half-Edge alteration)
+	bool erasep( int p );												// Erase Point
 
-	// Triangulation Modifiers
+	bool prune( int ta );												// Prune Boundary Triangle
+	bool flip( int ha, float );									// Flip Triangulation Edge (with Minangle)
+	bool collapse( int ha );										// Collapse Triangulation Edge
+	bool split( int ta );												// Split Triangle
+	bool optimize();														// Optimization Procedure Wrapper
 
-	bool eraset( int t, bool );	// Erase Triangle (with Boundary Half-Edge alteration)
-	bool erasep( int p );				// Erase Point
-
-	// Compound Topological Modifications
-
-	bool prune( int ta );				// Prune Boundary Triangle
-	bool flip( int ha, float );	// Flip Triangulation Edge (with Minangle)
-	bool collapse( int ha );		// Collapse Triangulation Edge
-	bool split( int ta );				// Split Triangle
-	bool optimize();						// Optimization Procedure Wrapper
-
-	// Warping
-
-	void warp( vector<vec2>& points );
-	void reversewarp( vector<vec2>& points );
-
-	// IO Functions
-
-	void read( string file, bool warp );
-	void write( string file, bool normalize );
+	void warp( vector<vec2>& points );					// Warp Pointvector from originpoints->points using barycentrics
+	void reversewarp( vector<vec2>& points );		// Warp Pointvector from points->originpoints using barycentrics
 
 };
 
-size_t triangulation::MAXT = (2 << 18);
-
-/*
-================================================================================
-												Triangulation Modifiers
-================================================================================
-*/
-
-bool triangulation::eraset( int t, bool adjusth = true ){
-
-	// Sanity Checks
-
-	if(t >= triangles.size())
-		return false;
-
-	if( adjusth ){	// Whether to adjust the exterior half-edges
-
-		// Get Triangle Exterior Half-Edges
-
-		int h0 = halfedges[3*t+0];
-		int h1 = halfedges[3*t+1];
-		int h2 = halfedges[3*t+2];
-
-		// Remove References
-
-		if(h0 >= 0) halfedges[h0] = -1;
-		if(h1 >= 0) halfedges[h1] = -1;
-		if(h2 >= 0) halfedges[h2] = -1;
-
-	}
-
-	// Delete the Triangle, DONT Delete Vertices
-
-	triangles.erase( triangles.begin() + t );
-	halfedges.erase( halfedges.begin() + 3*t, halfedges.begin() + 3*(t + 1) );
-
-	// Fix Half-Edge Indexing
-
-	for(auto& h: halfedges)
-		if(h >= 3*(t+1)) h -= 3;
-
-	NT--;
-
-	return true;
-
-}
-
-bool triangulation::erasep( int p ){
-
-	if(p >= points.size())
-		return false;
-
-	points.erase( points.begin() + p );
-
-	for(auto& t: triangles){
-		if( t.x >= p ) t.x--;
-		if( t.y >= p ) t.y--;
-		if( t.z >= p ) t.z--;
-	}
-
-	NP--;
-
-	return true;
-
-}
+size_t triangulation::MAXT = (2 << 18);				// Maximum number of Triangles (for Memory Reservation)
 
 /*
 ================================================================================
@@ -236,6 +146,60 @@ int triangulation::boundary( int t ){
 
 }
 
+/*
+================================================================================
+												Triangulation Direct Modifiers
+================================================================================
+*/
+
+bool triangulation::eraset( int t, bool adjusth = true ){
+
+	if(t >= triangles.size())						//Sanity Check
+		return false;
+
+	if( adjusth ){
+
+		int h0 = halfedges[3*t+0];				// Exterior Halfedge References
+		int h1 = halfedges[3*t+1];
+		int h2 = halfedges[3*t+2];
+
+		if(h0 >= 0) halfedges[h0] = -1;		// Remove References
+		if(h1 >= 0) halfedges[h1] = -1;
+		if(h2 >= 0) halfedges[h2] = -1;
+
+	}
+
+	// Delete the Triangle, DONT Delete Vertices
+
+	triangles.erase( triangles.begin() + t );
+	halfedges.erase( halfedges.begin() + 3*t, halfedges.begin() + 3*(t + 1) );
+	NT--;
+
+	for(auto& h: halfedges)							// Fix Halfedge Indexing
+		if(h >= 3*(t+1)) h -= 3;
+
+	return true;
+
+}
+
+bool triangulation::erasep( int p ){
+
+	if(p >= points.size())
+		return false;
+
+	points.erase( points.begin() + p );
+
+	for(auto& t: triangles){
+		if( t.x >= p ) t.x--;
+		if( t.y >= p ) t.y--;
+		if( t.z >= p ) t.z--;
+	}
+
+	NP--;
+
+	return true;
+
+}
 
 /*
 ================================================================================
@@ -619,19 +583,19 @@ glm::ivec4* col;
 
 void init(){
 
-	pointbuf 		= new Buffer( tri::triangulation::MAXT, (glm::vec2*)NULL );
-	trianglebuf = new Buffer( tri::triangulation::MAXT, (glm::ivec4*)NULL );
-	tcolaccbuf 	= new Buffer( tri::triangulation::MAXT, (glm::ivec4*)NULL );		// Raw Color
-	tcolnumbuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Triangle Size (Pixels)
-	tenergybuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Triangle Energy
-	penergybuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );			// Vertex Energy
-	pgradbuf 		= new Buffer( tri::triangulation::MAXT, (glm::ivec2*)NULL );
-	tnringbuf 	= new Buffer( tri::triangulation::MAXT, (int*)NULL );
+	pointbuf 		= new Buffer( tpose::triangulation::MAXT, (glm::vec2*)NULL );
+	trianglebuf = new Buffer( tpose::triangulation::MAXT, (glm::ivec4*)NULL );
+	tcolaccbuf 	= new Buffer( tpose::triangulation::MAXT, (glm::ivec4*)NULL );		// Raw Color
+	tcolnumbuf 	= new Buffer( tpose::triangulation::MAXT, (int*)NULL );			// Triangle Size (Pixels)
+	tenergybuf 	= new Buffer( tpose::triangulation::MAXT, (int*)NULL );			// Triangle Energy
+	penergybuf 	= new Buffer( tpose::triangulation::MAXT, (int*)NULL );			// Vertex Energy
+	pgradbuf 		= new Buffer( tpose::triangulation::MAXT, (glm::ivec2*)NULL );
+	tnringbuf 	= new Buffer( tpose::triangulation::MAXT, (int*)NULL );
 
-	terr = new int[tri::triangulation::MAXT];
-	perr = new int[tri::triangulation::MAXT];
-	cn 	= new int[tri::triangulation::MAXT];
-	col = new glm::ivec4[tri::triangulation::MAXT];
+	terr = new int[tpose::triangulation::MAXT];
+	perr = new int[tpose::triangulation::MAXT];
+	cn 	= new int[tpose::triangulation::MAXT];
+	col = new glm::ivec4[tpose::triangulation::MAXT];
 
 }
 
@@ -653,16 +617,16 @@ void quit(){
 
 }
 
-void upload( tri::triangulation* tr, bool uploadcolor = true ){
+void upload( tpose::triangulation* tr, bool uploadcolor = true ){
 
 	pointbuf->fill(tr->points);
 	trianglebuf->fill(tr->triangles);
 
 	if(uploadcolor){
 		int nc = 0;
-		for(auto& c: tr->colors){
+		for(size_t k = 0; k < tr->NT; k++){
 			for(size_t i = 0; i < 13; i++)
-				col[i*tr->NT + nc] = c;
+				col[i*tr->NT + nc] = tr->colors[k];
 			nc++;
 		}
 		tcolaccbuf->fill(13*tr->NT, col);
@@ -678,7 +642,7 @@ float newerr;
 float relerr;
 float maxerr;
 
-float geterr( tri::triangulation* tr ){
+float geterr( tpose::triangulation* tr ){
 
 	maxerr = 0.0f;
 	newerr = 0.0f;
@@ -701,7 +665,7 @@ float geterr( tri::triangulation* tr ){
 
 }
 
-float gettoterr( tri::triangulation* tr ){
+float gettoterr( tpose::triangulation* tr ){
 
 	maxerr = 0.0f;
 	newerr = 0.0f;
@@ -724,7 +688,7 @@ float gettoterr( tri::triangulation* tr ){
 
 }
 
-int maxerrid( tri::triangulation* tr ){
+int maxerrid( tpose::triangulation* tr ){
 
 	maxerr = 0;
 	int tta = -1;
@@ -746,181 +710,7 @@ int maxerrid( tri::triangulation* tr ){
 
 }
 
-/*
-================================================================================
-														Triangulation IO
-================================================================================
-*/
-
-// Export a Triangulation
-
-void triangulation::write( string file, bool normalize = true ){
-
-	cout<<"Exporting to file "<<file<<endl;
-	ofstream out(file, ios::out);
-	if(!out.is_open()){
-		cout<<"Failed to open file "<<file<<endl;
-		exit(0);
-	}
-
-	// Export Vertices
-
-	out<<"VERTEX"<<endl;
-	for(auto& p: points)
-		out<<p.x<<" "<<p.y<<endl;
-
-	// Export Halfedges
-
-	out<<"HALFEDGE"<<endl;
-	for(size_t i = 0; i < halfedges.size()/3; i++)
-		out<<halfedges[3*i+0]<<" "<<halfedges[3*i+1]<<" "<<halfedges[3*i+2]<<endl;
-
-	// Export Triangles
-
-	out<<"TRIANGLE"<<endl;
-	for(auto& t: triangles)
-		out<<t.x<<" "<<t.y<<" "<<t.z<<endl;
-
-	// Export Colors
-
-	out<<"COLOR"<<endl;
-	for(size_t i = 0; i < NT; i++){
-		if(normalize){
-			if(cn[i] == 0) cn[i] = 1;
-			out<<colors[i].x/cn[i]<<" "<<colors[i].y/cn[i]<<" "<<colors[i].z/cn[i]<<endl;
-		}
-		else out<<colors[i].x<<" "<<colors[i].y<<" "<<colors[i].z<<endl;
-
-	}
-
-	out.close();
-
-}
-
-// Import a Triangulation
-
-void triangulation::read( string file, bool dowarp = true ){
-
-	cout<<"Importing from file "<<file<<endl;
-	ifstream in(file, ios::in);
-	if(!in.is_open()){
-		cout<<"Failed to open file "<<file<<endl;
-		exit(0);
-	}
-
-	string pstring;
-
-	vec2 p = vec2(0);
-	ivec4 c = ivec4(0);
-	ivec4 t = ivec4(0);
-	ivec3 h = ivec3(0);
-
-	vector<vec2> npoints;
-	vector<vec2> noriginpoints;
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		if(pstring == "HALFEDGE")
-			break;
-
-		int m = sscanf(pstring.c_str(), "%f %f", &p.x, &p.y);
-		if(m == 2){
-			npoints.push_back(p);
-			noriginpoints.push_back(p);
-		}
-
-	}
-
-	// Check for Warping
-
-	if(dowarp) warp(npoints);
-
-	points = npoints;
-	originpoints = noriginpoints;
-	NP = points.size();
-
-	halfedges.clear();
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		if(pstring == "TRIANGLE")
-			break;
-
-		int m = sscanf(pstring.c_str(), "%u %u %u", &h.x, &h.y, &h.z);
-		if(m == 3){
-			halfedges.push_back(h.x);
-			halfedges.push_back(h.y);
-			halfedges.push_back(h.z);
-		}
-
-	}
-
-	triangles.clear();
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		if(pstring == "COLOR")
-			break;
-
-		int m = sscanf(pstring.c_str(), "%u %u %u", &t.x, &t.y, &t.z);
-		if(m == 3) triangles.push_back(t);
-
-	}
-
-	NT = triangles.size();
-
-	colors.clear();
-	while(!in.eof()){
-
-		getline(in, pstring);
-		if(in.eof())
-			break;
-
-		int m = sscanf(pstring.c_str(), "%u %u %u", &c.x, &c.y, &c.z);
-		if(m == 3) colors.push_back(ivec4(c.x, c.y, c.z, 1));
-
-	}
-
-	in.close();
-
-}
-
-
 } //End of Namespace
 
-/*
-================================================================================
-												TinyEngine Rendering Interface
-================================================================================
-*/
-
-// Rendering Structures
-
-struct Triangle : Model {
-	Buffer vert;
-	Triangle():Model({"vert"}),
-	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}){
-		bind<glm::vec3>("vert", &vert);
-		SIZE = 3;
-	}
-};
-
-struct TLineStrip : Model {
-	Buffer vert;
-	TLineStrip():Model({"vert"}),
-	vert({1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f}){
-		bind<glm::vec3>("vert", &vert);
-		SIZE = 4;
-	}
-};
 
 #endif
