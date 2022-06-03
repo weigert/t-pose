@@ -16,29 +16,19 @@ using namespace glm;
 
 int main( int argc, char* args[] ) {
 
-
-		vector<int> exportlist = {
-			4000,
-			3000,
-			2000,
-			1500,
-			1500,
-			1400,
-			1300,
-			1200,
-			1100,
-			1000,
-			900,
-			800,
-			700,
-			600,
-			500,
-			400,
-			300,
-			200,
-			100,
-			50
-		};
+	vector<int> exportlist = {
+		1000,
+		900,
+		800,
+		700,
+		600,
+		500,
+		400,
+		300,
+		200,
+		100,
+		50
+	};
 
 	// Load Parameters
 
@@ -233,7 +223,9 @@ int main( int argc, char* args[] ) {
 					if(tpose::cn[i] > 0)
 						tr.colors[i] /= tpose::cn[i];
 
-				tpose::io::write(&tr, "out.tri");
+				tr.originpoints = tr.points;
+
+				tpose::io::write(&tr, parse::option["i"] + ".tri");
 				exportlist.pop_back();
 
 			}
