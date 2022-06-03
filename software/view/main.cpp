@@ -32,8 +32,8 @@ int main( int argc, char* args[] ) {
 	Tiny::view.antialias = 0;
 
 	tpose::triangulation trA;
-	tpose::io::read(&trA, tri);
-//	while(tpose::io::read(&trA, tri));
+	if(!tpose::io::read(&trA, tri))
+		exit(0);
 
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", tpose::RATIO*600, 600);
 
