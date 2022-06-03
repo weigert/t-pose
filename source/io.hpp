@@ -102,7 +102,7 @@ This defines a binary triangulation format which is stackable!
 
 #ifdef TPOSE_TRIANGULATION
 
-bool read( tpose::triangulation* tri, string file, bool dowarp ){
+bool read( tpose::triangulation* tri, string file, bool dowarp = false ){
 
   cout<<"Importing triangulation from "<<file<<" ... ";
 
@@ -114,45 +114,76 @@ bool read( tpose::triangulation* tri, string file, bool dowarp ){
     }
   }
 
+  // Top-Level Metadata
+
+  tri->in.read( (char*)( &tpose::RATIO ), sizeof( float ));
+
   if(tri->in.eof()){
     tri->in.close();
     cout<<"end of file."<<endl;
     return false;
   }
 
-  // Top-Level Metadata
-
-  tri->in.read( (char*)( &tpose::RATIO ), sizeof( float ));
-
   // Per-Triangle Data
 
   tri->in.read( (char*)( &tri->NT ), sizeof( int ));
 
-  tri->triangles.resize(tri->NT);
-  tri->halfedges.resize(3*tri->NT);
-  tri->colors.resize(tri->NT);
+  vector<ivec4> ntriangles;
+	vector<int> nhalfedges;
+  vector<ivec4> ncolors;
+
+  ntriangles.resize(tri->NT);
+  nhalfedges.resize(3*tri->NT);
+  ncolors.resize(tri->NT);
 
   for(size_t t = 0; t < tri->NT; t++){
 
-    tri->in.read( (char*)( &tri->triangles[t][0] ), sizeof( int ));
-    tri->in.read( (char*)( &tri->triangles[t][1] ), sizeof( int ));
-    tri->in.read( (char*)( &tri->triangles[t][2] ), sizeof( int ));
-    tri->triangles[t].w = 0.0f;
+    tri->in.read( (char*)( &ntriangles[t][0] ), sizeof( int ));
+    tri->in.read( (char*)( &ntriangles[t][1] ), sizeof( int ));
+    tri->in.read( (char*)( &ntriangles[t][2] ), sizeof( int ));
+    ntriangles[t].w = 0.0f;
 
-    tri->in.read( (char*)( &tri->halfedges[3*t+0] ), sizeof( int ));
-    tri->in.read( (char*)( &tri->halfedges[3*t+1] ), sizeof( int ));
-    tri->in.read( (char*)( &tri->halfedges[3*t+2] ), sizeof( int ));
+    tri->in.read( (char*)( &nhalfedges[3*t+0] ), sizeof( int ));
+    tri->in.read( (char*)( &nhalfedges[3*t+1] ), sizeof( int ));
+    tri->in.read( (char*)( &nhalfedges[3*t+2] ), sizeof( int ));
 
-    tri->in.read( (char*)( &tri->colors[t][0] ), sizeof( int ));
-    tri->in.read( (char*)( &tri->colors[t][1] ), sizeof( int ));
-    tri->in.read( (char*)( &tri->colors[t][2] ), sizeof( int ));
-    tri->colors[t].w = 1.0f;
+    tri->in.read( (char*)( &ncolors[t][0] ), sizeof( int ));
+    tri->in.read( (char*)( &ncolors[t][1] ), sizeof( int ));
+    tri->in.read( (char*)( &ncolors[t][2] ), sizeof( int ));
+    ncolors[t].w = 1.0f;
 
   }
 
   // Per-Vertex Data
 
   tri->in.read( (char*)( &tri->NP ), sizeof( int ));
+
+  vector<vec2> npoints;
+	vector<vec2> noriginpoints;
+
+  npoints.resize(tri->NP);
+  noriginpoints.resize(tri->NP);
+
+  for(size_t p = 0; p < tri->NP; p++){
+
+    tri->in.read( (char*)( &npoints[p][0] ), sizeof( float ));
+    tri->in.read( (char*)( &npoints[p][1] ), sizeof( float ));
+
+    tri->in.read( (char*)( &noriginpoints[p][0] ), sizeof( float ));
+    tri->in.read( (char*)( &noriginpoints[p][1] ), sizeof( float ));
+
+  }
+
+	if(dowarp) tri->warp(npoints);
+
+  tri->triangles = ntriangles;
+  tri->colors = ncolors;
+  tri->halfedges = nhalfedges;
+
+	tri->points = npoints;
+	tri->originpoints = noriginpoints;
+
+  /*
 
   tri->points.resize(tri->NP);
   tri->originpoints.resize(tri->NP);
@@ -167,12 +198,14 @@ bool read( tpose::triangulation* tri, string file, bool dowarp ){
 
   }
 
-  cout<<"success."<<endl;
+  */
+
+  cout<<"success ("<<tri->NT<<")."<<endl;
   return true;
 
 }
 
-void write( tpose::triangulation* tri, string file, bool normalize = true ){
+void write( tpose::triangulation* tri, string file ){
 
   if(!tri->out.is_open()){
     tri->out.open( file, ios::binary | ios::out );
