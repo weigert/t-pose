@@ -102,33 +102,31 @@ This defines a binary triangulation format which is stackable!
 
 #ifdef TPOSE_TRIANGULATION
 
-ifstream in;
-
 bool read( tpose::triangulation* tri, string file, bool dowarp ){
 
   cout<<"Importing triangulation from "<<file<<" ... ";
 
-  if(!in.is_open()){
-    in.open( file, ios::binary | ios::in );
-    if(!in.is_open()){
+  if(!tri->in.is_open()){
+    tri->in.open( file, ios::binary | ios::in );
+    if(!tri->in.is_open()){
       cout<<"failed to open file."<<endl;
       exit(0);
     }
   }
 
-  if(in.eof()){
-    in.close();
+  if(tri->in.eof()){
+    tri->in.close();
     cout<<"end of file."<<endl;
     return false;
   }
 
   // Top-Level Metadata
 
-  in.read( (char*)( &tpose::RATIO ), sizeof( float ));
+  tri->in.read( (char*)( &tpose::RATIO ), sizeof( float ));
 
   // Per-Triangle Data
 
-  in.read( (char*)( &tri->NT ), sizeof( int ));
+  tri->in.read( (char*)( &tri->NT ), sizeof( int ));
 
   tri->triangles.resize(tri->NT);
   tri->halfedges.resize(3*tri->NT);
@@ -136,36 +134,36 @@ bool read( tpose::triangulation* tri, string file, bool dowarp ){
 
   for(size_t t = 0; t < tri->NT; t++){
 
-    in.read( (char*)( &tri->triangles[t][0] ), sizeof( int ));
-    in.read( (char*)( &tri->triangles[t][1] ), sizeof( int ));
-    in.read( (char*)( &tri->triangles[t][2] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->triangles[t][0] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->triangles[t][1] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->triangles[t][2] ), sizeof( int ));
     tri->triangles[t].w = 0.0f;
 
-    in.read( (char*)( &tri->halfedges[3*t+0] ), sizeof( int ));
-    in.read( (char*)( &tri->halfedges[3*t+1] ), sizeof( int ));
-    in.read( (char*)( &tri->halfedges[3*t+2] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->halfedges[3*t+0] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->halfedges[3*t+1] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->halfedges[3*t+2] ), sizeof( int ));
 
-    in.read( (char*)( &tri->colors[t][0] ), sizeof( int ));
-    in.read( (char*)( &tri->colors[t][1] ), sizeof( int ));
-    in.read( (char*)( &tri->colors[t][2] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->colors[t][0] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->colors[t][1] ), sizeof( int ));
+    tri->in.read( (char*)( &tri->colors[t][2] ), sizeof( int ));
     tri->colors[t].w = 1.0f;
 
   }
 
   // Per-Vertex Data
 
-  in.read( (char*)( &tri->NP ), sizeof( int ));
+  tri->in.read( (char*)( &tri->NP ), sizeof( int ));
 
   tri->points.resize(tri->NP);
   tri->originpoints.resize(tri->NP);
 
   for(size_t p = 0; p < tri->NP; p++){
 
-    in.read( (char*)( &tri->points[p][0] ), sizeof( float ));
-    in.read( (char*)( &tri->points[p][1] ), sizeof( float ));
+    tri->in.read( (char*)( &tri->points[p][0] ), sizeof( float ));
+    tri->in.read( (char*)( &tri->points[p][1] ), sizeof( float ));
 
-    in.read( (char*)( &tri->originpoints[p][0] ), sizeof( float ));
-    in.read( (char*)( &tri->originpoints[p][1] ), sizeof( float ));
+    tri->in.read( (char*)( &tri->originpoints[p][0] ), sizeof( float ));
+    tri->in.read( (char*)( &tri->originpoints[p][1] ), sizeof( float ));
 
   }
 
@@ -174,13 +172,11 @@ bool read( tpose::triangulation* tri, string file, bool dowarp ){
 
 }
 
-ofstream out;
-
 void write( tpose::triangulation* tri, string file, bool normalize = true ){
 
-  if(!out.is_open()){
-    out.open( file, ios::binary | ios::out );
-    if(!out.is_open()){
+  if(!tri->out.is_open()){
+    tri->out.open( file, ios::binary | ios::out );
+    if(!tri->out.is_open()){
       cout<<"Failed to open file "<<file<<endl;
       exit(0);
     }
@@ -190,39 +186,39 @@ void write( tpose::triangulation* tri, string file, bool normalize = true ){
 
   // Top-Level Metadata
 
-  out.write( reinterpret_cast<const char*>( &tpose::RATIO ), sizeof( float ));
+  tri->out.write( reinterpret_cast<const char*>( &tpose::RATIO ), sizeof( float ));
 
   // Per-Triangle Data
 
-  out.write( reinterpret_cast<const char*>( &tri->NT ), sizeof( int ));
+  tri->out.write( reinterpret_cast<const char*>( &tri->NT ), sizeof( int ));
 
   for(size_t t = 0; t < tri->NT; t++){
 
-    out.write( reinterpret_cast<const char*>( &tri->triangles[t][0] ), sizeof( int ));
-    out.write( reinterpret_cast<const char*>( &tri->triangles[t][1] ), sizeof( int ));
-    out.write( reinterpret_cast<const char*>( &tri->triangles[t][2] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->triangles[t][0] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->triangles[t][1] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->triangles[t][2] ), sizeof( int ));
 
-    out.write( reinterpret_cast<const char*>( &tri->halfedges[3*t+0] ), sizeof( int ));
-    out.write( reinterpret_cast<const char*>( &tri->halfedges[3*t+1] ), sizeof( int ));
-    out.write( reinterpret_cast<const char*>( &tri->halfedges[3*t+2] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->halfedges[3*t+0] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->halfedges[3*t+1] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->halfedges[3*t+2] ), sizeof( int ));
 
-    out.write( reinterpret_cast<const char*>( &tri->colors[t][0] ), sizeof( int ));
-    out.write( reinterpret_cast<const char*>( &tri->colors[t][1] ), sizeof( int ));
-    out.write( reinterpret_cast<const char*>( &tri->colors[t][2] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->colors[t][0] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->colors[t][1] ), sizeof( int ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->colors[t][2] ), sizeof( int ));
 
   }
 
   // Per-Vertex Data
 
-  out.write( reinterpret_cast<const char*>( &tri->NP ), sizeof( int ));
+  tri->out.write( reinterpret_cast<const char*>( &tri->NP ), sizeof( int ));
 
   for(size_t p = 0; p < tri->NP; p++){
 
-    out.write( reinterpret_cast<const char*>( &tri->points[p][0] ), sizeof( float ));
-    out.write( reinterpret_cast<const char*>( &tri->points[p][1] ), sizeof( float ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->points[p][0] ), sizeof( float ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->points[p][1] ), sizeof( float ));
 
-    out.write( reinterpret_cast<const char*>( &tri->originpoints[p][0] ), sizeof( float ));
-    out.write( reinterpret_cast<const char*>( &tri->originpoints[p][1] ), sizeof( float ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->originpoints[p][0] ), sizeof( float ));
+    tri->out.write( reinterpret_cast<const char*>( &tri->originpoints[p][1] ), sizeof( float ));
 
   }
 

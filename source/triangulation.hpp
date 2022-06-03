@@ -12,6 +12,7 @@ operations for altering its topology and executing queries about its structure.
 #define TPOSE_TRIANGULATION
 
 #include <tpose/utility>
+#include <fstream>
 
 namespace tpose {
 
@@ -35,6 +36,9 @@ struct triangulation {
 	int NP;											// Number of Points
 	vector<vec2> points;				// Set of Points
 	vector<vec2> originpoints;	// Original Point Position
+
+	ofstream out;								// Output-Stream
+	ifstream in;								// Input-Stream
 
 	triangulation(){						// Simple 2-Triangle Constructor
 
@@ -63,6 +67,11 @@ struct triangulation {
 
 		originpoints = points;
 
+	}
+
+	~triangulation(){
+		if(out.is_open()) out.close();
+		if(in.is_open()) in.close();
 	}
 
 	float angle( int ha );											// Compute the Angle Opposite of Halfedge

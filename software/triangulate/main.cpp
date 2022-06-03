@@ -360,7 +360,6 @@ int main( int argc, char* args[] ) {
 
 	});
 
-	if(tpose::io::out.is_open()) tpose::io::out.close();
 	tpose::quit();
 	Tiny::quit();
 

@@ -125,7 +125,6 @@ int main( int argc, char* args[] ) {
 		if(s < 0 || s > 1) ds *= -1;
 	});
 
-	tpose::io::in.close();
 	tpose::quit();
 	Tiny::quit();
 
