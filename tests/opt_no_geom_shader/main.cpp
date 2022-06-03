@@ -18,26 +18,12 @@ int main( int argc, char* args[] ) {
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", 900, 600);
 	tpose::RATIO = 9.0/6.0;
 
-	bool paused = true;
-	bool showlines = false;
-
-	Tiny::view.interface = [](){};
-	Tiny::event.handler = [&](){
-
-		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
-			paused = !paused;
-
-		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
-			showlines = !showlines;
-
-	};
-
-	Texture tex(image::load("fruit.png"));		//Load Texture with Image
-	Square2D flat;																					//Create Primitive Model
-
 	glDisable(GL_CULL_FACE);
 
 	// Shaders and Buffers
+
+	Texture tex(image::load("fruit.png"));		//Load Texture with Image
+	Square2D flat;																					//Create Primitive Model
 
 	tpose::init();
 
@@ -82,9 +68,27 @@ int main( int argc, char* args[] ) {
 	Model pointmesh({"in_Position"});
 	pointmesh.bind<vec2>("in_Position", tpose::pointbuf);
 
-	// Convenience Lambdas
+	// Main Functions
 
-	auto computecolors = [&](){
+	bool paused = true;
+	bool showlines = false;
+
+	Tiny::view.interface = [](){};
+	Tiny::event.handler = [&](){
+
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_p)
+			paused = !paused;
+
+		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_n)
+			showlines = !showlines;
+
+	};
+
+	Tiny::view.pipeline = [&](){
+
+		Tiny::view.target(color::black);				//Target Main Screen
+
+		// Compute Colors
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
@@ -93,34 +97,7 @@ int main( int argc, char* args[] ) {
 		triangleshader.uniform("RATIO", tpose::RATIO);
 		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
 
-	};
-
-	auto doenergy = [&](){
-
-		triangleshader.use();
-		triangleshader.texture("imageTexture", tex);
-		triangleshader.uniform("mode", 1);
-		triangleshader.uniform("KTriangles", tr.NT);
-		triangleshader.uniform("RATIO", tpose::RATIO);
-		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
-
-	};
-
-	auto doshift = [&](){
-
-		gradient.use();
-		gradient.uniform("KTriangles", tr.NT);
-		gradient.uniform("RATIO", tpose::RATIO);
-		gradient.dispatch(1 + tr.NT/1024);
-
-		shift.use();
-		shift.uniform("NPoints", tr.NP);
-		shift.uniform("RATIO", tpose::RATIO);
-		shift.dispatch(1 + tr.NP/1024);
-
-	};
-
-	auto draw = [&](){
+		// Draw
 
 		triangleshader.use();
 		triangleshader.texture("imageTexture", tex);		//Load Texture
@@ -139,27 +116,28 @@ int main( int argc, char* args[] ) {
 
 	};
 
-	computecolors();
-
-	// Main Functions
-
-	Tiny::view.pipeline = [&](){
-
-		Tiny::view.target(color::black);				//Target Main Screen
-
-		computecolors();
-		draw();
-
-	};
-
 	Tiny::loop([&](){
 
 		if(paused) return;
 
 		// Compute Cost and Gradients, Shift Points
 
-		doenergy();
-		doshift();
+		triangleshader.use();
+		triangleshader.texture("imageTexture", tex);
+		triangleshader.uniform("mode", 1);
+		triangleshader.uniform("KTriangles", tr.NT);
+		triangleshader.uniform("RATIO", tpose::RATIO);
+		triangleinstance.render(GL_TRIANGLE_STRIP, (13*tr.NT));
+
+		gradient.use();
+		gradient.uniform("KTriangles", tr.NT);
+		gradient.uniform("RATIO", tpose::RATIO);
+		gradient.dispatch(1 + tr.NT/1024);
+
+		shift.use();
+		shift.uniform("NPoints", tr.NP);
+		shift.uniform("RATIO", tpose::RATIO);
+		shift.dispatch(1 + tr.NP/1024);
 
 		// Retrieve Data from Compute Shader
 
