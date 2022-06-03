@@ -55,44 +55,6 @@ bool readmatches(string file, vector<vec2>& A, vector<vec2>& B){
 
 /*
 ================================================================================
-                                Data Writing
-================================================================================
-*/
-
-bool writeenergy( tpose::triangulation* tr, string file ){
-
-  cout<<"Exporting Energy to "<<file<<endl;
-  ofstream out(file, ios::out);
-  if(!out.is_open()){
-    cout<<"Failed to open file "<<file<<endl;
-    return false;
-  }
-
-  // Export Triangle Energy
-
-  out<<"TENERGY"<<endl;
-  for(size_t i = 0; i < tr->NT; i++)
-    out<<tpose::terr[i]<<endl;
-
-  out<<"PENERGY"<<endl;
-  for(size_t i = 0; i < tr->NP; i++)
-    out<<tpose::perr[i]<<endl;
-
-  out<<"CN"<<endl;
-  for(size_t i = 0; i < tr->NT; i++)
-    out<<tpose::cn[i]<<endl;
-
-  out.close();
-
-  return true;
-
-}
-
-
-
-
-/*
-================================================================================
                             Triangulation IO
 ================================================================================
 

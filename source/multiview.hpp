@@ -11,16 +11,13 @@ epipolar geometries and perform point triangulation for multiview geometry.
 #ifndef TPOSE_MULTIVIEW
 #define TPOSE_MULTIVIEW
 
-// unproject.h
-
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
 
-#include "math.h"
-#include "utility.h"
+#include <tpose/utility>
 
 namespace tpose{
 namespace mview {
@@ -312,12 +309,12 @@ Matrix3f F_LMEDS( vector<vec2> A, vector<vec2> B ){
 
     // No Boundary Points
 
-    if(A[i].x <= -tri::RATIO) continue;
-    if(A[i].x >= tri::RATIO) continue;
+    if(A[i].x <= -tpose::RATIO) continue;
+    if(A[i].x >= tpose::RATIO) continue;
     if(A[i].y <= -1) continue;
     if(A[i].y >= 1) continue;
-    if(B[i].x <= -tri::RATIO) continue;
-    if(B[i].x >= tri::RATIO) continue;
+    if(B[i].x <= -tpose::RATIO) continue;
+    if(B[i].x >= tpose::RATIO) continue;
     if(B[i].y <= -1) continue;
     if(B[i].y >= 1) continue;
 
@@ -341,12 +338,12 @@ Matrix3f F_RANSAC( vector<vec2> A, vector<vec2> B ){
 
     // No Boundary Points
 
-    if(A[i].x <= -tri::RATIO) continue;
-    if(A[i].x >= tri::RATIO) continue;
+    if(A[i].x <= -tpose::RATIO) continue;
+    if(A[i].x >= tpose::RATIO) continue;
     if(A[i].y <= -1) continue;
     if(A[i].y >= 1) continue;
-    if(B[i].x <= -tri::RATIO) continue;
-    if(B[i].x >= tri::RATIO) continue;
+    if(B[i].x <= -tpose::RATIO) continue;
+    if(B[i].x >= tpose::RATIO) continue;
     if(B[i].y <= -1) continue;
     if(B[i].y >= 1) continue;
 

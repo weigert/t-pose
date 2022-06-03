@@ -7,6 +7,12 @@
 #ifndef TPOSE
 #define TPOSE
 
+namespace tpose {
+
+	float RATIO = 12.0f/8.0f;
+
+}
+
 #ifdef TINYENGINE_UTILITIES
 
 /*

@@ -19,7 +19,6 @@ namespace tpose {
 using namespace glm;
 using namespace std;
 
-float RATIO = 12.0f/8.0f;
 const float PI = 3.14159265f;
 
 // Main Triangulation Struct
