@@ -10,6 +10,22 @@ layout (std430, binding = 1) buffer index {
   ivec4 ind[];
 };
 
+layout (std430, binding = 2) buffer colacc {
+  ivec4 ca[];
+};
+
+layout (std430, binding = 3) buffer colnum {
+  int cn[];
+};
+
+layout (std430, binding = 4) buffer tenergy {
+  int ten[];
+};
+
+layout (std430, binding = 5) buffer penergy {
+  int pen[];
+};
+
 layout (std430, binding = 6) buffer gradient {
   ivec2 gr[];
 };
@@ -64,24 +80,37 @@ void main() {
   gl_Position = vec4(tpos, -1, 1.0f);
   vs_out.position = vec2(0.5*(1.0+tpos.x), 0.5*(1.0-tpos.y));
 
+
+  if(mode == 0){
+    cn[vs_out.index] = 0;
+    ca[vs_out.index] = ivec4(0);
+  }
+
+  if(mode == 1){
+    ten[vs_out.index] = 0;
+    gr[ind[TMOD].x] = ivec2(0);
+    gr[ind[TMOD].y] = ivec2(0);
+    gr[ind[TMOD].z] = ivec2(0);
+  }
+
   //Add One-Ring Energy
 
   if( TDIV == 0 && mode == 0 )
-    atomicAdd(nr[TMOD], 1 );    //count the n-ring! (divided by 3)
+    atomicAdd(nr[pind], 1 );    //count the n-ring! (divided by 3)
 
   if( TDIV == 0 && mode == 1 ) {
 
-    const float lambda = 100*256*256;
+    const float lambda = 0*256*256;
 
     if (in_Position.x > 0){
 
       vec2 wva = p[pind] - p[ind[TMOD].y]; //Distance from this Vertex to Prev
       vec2 wvb = p[pind] - p[ind[TMOD].z]; //Distance from this Vertex to Next
       //Add Direct Energy Gradient
-      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
-      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
-      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
-      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
+      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[pind]);
+      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[pind]);
+      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[pind]);
+      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[pind]);
 
     }
 
@@ -90,10 +119,10 @@ void main() {
       vec2 wva = p[pind] - p[ind[TMOD].z]; //Distance from this Vertex to Prev
       vec2 wvb = p[pind] - p[ind[TMOD].x]; //Distance from this Vertex to Next
       //Add Direct Energy Gradient
-      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
-      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
-      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
-      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
+      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[pind]);
+      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[pind]);
+      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[pind]);
+      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[pind]);
 
     }
 
@@ -102,10 +131,10 @@ void main() {
       vec2 wva = p[pind] - p[ind[TMOD].x]; //Distance from this Vertex to Prev
       vec2 wvb = p[pind] - p[ind[TMOD].y]; //Distance from this Vertex to Next
       //Add Direct Energy Gradient
-      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[TMOD]);
-      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[TMOD]);
-      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[TMOD]);
-      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[TMOD]);
+      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wva+vec2(dp, 0), wva+vec2(dp, 0)) - dot(wva-vec2(dp, 0), wva-vec2(dp, 0))))/nr[pind]);
+      atomicAdd(gr[pind].x, int(lambda*0.5/3.0*(dot(wvb+vec2(dp, 0), wvb+vec2(dp, 0)) - dot(wvb-vec2(dp, 0), wvb-vec2(dp, 0))))/nr[pind]);
+      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wva+vec2( 0,dp), wva+vec2( 0,dp)) - dot(wva-vec2( 0,dp), wva-vec2( 0,dp))))/nr[pind]);
+      atomicAdd(gr[pind].y, int(lambda*0.5/3.0*(dot(wvb+vec2( 0,dp), wvb+vec2( 0,dp)) - dot(wvb-vec2( 0,dp), wvb-vec2( 0,dp))))/nr[pind]);
 
     }
 
