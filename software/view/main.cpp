@@ -32,9 +32,8 @@ int main( int argc, char* args[] ) {
 	Tiny::view.antialias = 0;
 
 	tpose::triangulation trA;
-	tpose::io::read(&trA, tri, false);
-//	while(tpose::io::read(&trA, tri, false));
-	cout<<"Loaded Triangulation with "<<trA.NT<<" triangles"<<endl;
+	tpose::io::read(&trA, tri);
+//	while(tpose::io::read(&trA, tri));
 
 	Tiny::window("Energy Based Image Triangulation, Nicholas Mcdonald 2022", tpose::RATIO*600, 600);
 
@@ -82,9 +81,10 @@ int main( int argc, char* args[] ) {
 			showlines = !showlines;
 
 		if(!Tiny::event.press.empty() && Tiny::event.press.back() == SDLK_SPACE){
-			tpose::io::read(&trA, tri, false);
-			tpose::upload(&trA);
-			otherpointbuf.fill(trA.originpoints);
+			if(tpose::io::read(&trA, tri)){
+				tpose::upload(&trA);
+				otherpointbuf.fill(trA.originpoints);
+			}
 		}
 
 	};
