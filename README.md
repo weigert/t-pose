@@ -2,31 +2,31 @@
 
 (triangulation pose)
 
-Two-View Pose Estimation and Direct-Mesh Scene Reconstruction from Image Triangulation
+Two-View Pose Estimation, Direct-Mesh Scene Reconstruction and RGB-D Meshing from Image Triangulation
 
 The animation below was generated from only 2 images using the method described below and implemented in this repository.
 
 <img alt="Example Interpolation of a Warping between two Views, with Texture Mapping" src="https://github.com/weigert/t-pose/blob/main/screenshots/warp_texture.gif">
 
-**Disclaimer**: This repository is a proof of concept / prototype for testing purposes. I am publishing it now in case anybody is interested. The methodology is still being improved and the repository is still being cleaned. The state of progress and improvements is explained below.
+**Disclaimer**: This repository is a proof of concept / prototype for testing purposes. I am publishing it now in case anybody is interested. The methodology is still being improved. The state of progress and improvements is explained below.
+
+## What is t-pose?
+
+t-pose is a small library that implements various structure from motion, 3D reconstruction and image warping algorithms on the basis of image triangulations in 2D. It then provides a number of programs that implement these concepts in an easy to use manner.
 
 ## Basic Concept
 
-Surfaces of equal material and orientation typically exhibit the same color when projected in images due to lighting. Therefore, triangulations of images are natural choices for representing surface geometry.
+Surfaces of equal material and orientation typically exhibit the same color when projected in images due to lighting. Therefore, triangulations of images in 2D are natural choices for representing surface geometry.
 
 Projections of triangles from 3D into 2D preserve straight lines and thus triangle geometry. Thus, an image triangulation can be directly converted to a 3D mesh if the 3D positions of the vertices can be computed.
 
-To do this, a multi-view geometry approach is applied, where "feature matches" are used to reconstruct the 3D positions. To generate these features, 2D image triangulations are warped between two images of two different views of the same object.
+This can be done either using RGB-D data or a multiview geometry approach (i.e. using "feature matches"). To generate these features, 2D image triangulations are warped between two images of two different views of the same object.
 
-For calibrated cameras, this allows for direct computation of camera pose, metric vertex positions and thus an object mesh.
+For calibrated cameras, this allows for direct computation of camera pose, metric vertex positions and thus an object mesh. For uncalibrated cameras, a 3D reconstruction can be computed (up to projective ambiguity for two images).
+
+The triangulations can also be used to perform dense depth map reconstruction prediction, explicit occlusion handling and more.
 
 ### Details
-
-The main algorithm consists of the following steps:
-
-1. Triangulate Images
-2. Warp Triangulations
-3. Reconstruct Mesh
 
 #### Triangulation
 
@@ -88,21 +88,25 @@ The triangulation thus provides a convenient structure for directly applying sta
 
 ## Usage
 
-Note that this repository is still a mess and I haven't yet decided on a data io structure for working with data sets. This will follow in the future.
-
-Nevertheless, you can build the programs which have inconsistent interfaces.
-
 Written in C++.
+
+Note that this repository is still under development and some major changes can be expected in the future.
+
+### Buliding / Running
 
 Build each program with `make all`.
 
-Dependencies:
-- [TinyEngine](https://github.com/weigert/TinyEngine)
-- OpenCV (only for two small aspects - I plan on removing this dependency)
-
 Run the programs using `./main`, the programs will let you know what input they want.
 
-Some programs generate output triangulation `.tri` files, which are a storage format for the triangulations (which will be overhauled). These are stored in the root `output` folder, so some programs will ask for a dataset name to write them to (e.g. triangulation program, warping program).
+Dependencies:
+
+- [TinyEngine](https://github.com/weigert/TinyEngine)
+- OpenCV (only for two small aspects - I plan on removing this dependency)
+- piolib (unreleased library - only for the RBG-D mesher)
+
+### Data Formats
+
+Various programs work with `.png` images and a custom binary triangulation format `.tri`, which includes all triangulations at all resolutions and various warpings.
 
 ### Reading
 
@@ -131,7 +135,6 @@ Finally, the main potential for this method comes from topological alterations d
 
 ### General
 
-- Better Triangulation Storage Format and Data IO
 - Proper Parameter Separation / Loading
 - Cost Function Normalization (very hard because of integer atomics)
 
