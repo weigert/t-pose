@@ -2,7 +2,7 @@
 
 (triangulation pose)
 
-Two-View Pose Estimation, Direct-Mesh Scene Reconstruction and RGB-D Meshing from Image Triangulation
+Two-view pose estimation, direct-mesh scene reconstruction and RGB-D meshing from adaptive hierarchical image triangulations
 
 The animation below was generated from only 2 images using the method described below and implemented in this repository.
 
